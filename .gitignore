@@ -2,7 +2,6 @@
 Reverse/output/tweak/.theos/
 Reverse/output/tweak/packages/
 Reverse/output/tweak/obj/
-dist/
 
 # 设备文件
 files/*.ipa
