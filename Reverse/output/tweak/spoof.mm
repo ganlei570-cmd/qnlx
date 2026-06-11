@@ -1,0 +1,121 @@
+#import <Foundation/Foundation.h>
+#import <Security/Security.h>
+#import <CoreFoundation/CoreFoundation.h>
+#import <sys/mount.h>
+#import <sys/statvfs.h>
+#import <dlfcn.h>
+#import <substrate.h>
+#import "profile.h"
+#import "spoof.h"
+#import "tlog.h"
+
+static NSString *kcQueryKey(CFDictionaryRef q) {
+    CFTypeRef svc = CFDictionaryGetValue(q, kSecAttrService);
+    CFTypeRef acc = CFDictionaryGetValue(q, kSecAttrAccount);
+    if (!svc || !acc) return nil;
+    if (CFGetTypeID(svc) != CFStringGetTypeID() || CFGetTypeID(acc) != CFStringGetTypeID()) return nil;
+    return [(__bridge NSString *)svc stringByAppendingFormat:@"/%@", (__bridge NSString *)acc];
+}
+
+static BOOL isQunarKey(NSString *key) {
+    if (!key) return NO;
+    if ([key containsString:@"qunar"] || [key containsString:@"iphoneclient"]) return YES;
+    return NO;
+}
+
+static BOOL shouldBlockKey(NSString *key) {
+    if (!key) return NO;
+    @synchronized(gKeychainAllowedSet) {
+        if ([gKeychainAllowedSet containsObject:key]) return NO;
+    }
+    return [gKeychainClearSet containsObject:key];
+}
+
+static int (*orig_statfs)(const char *, struct statfs *) = NULL;
+static int hook_statfs(const char *path, struct statfs *buf) {
+    int r = orig_statfs(path, buf);
+    if (r != 0 || !gDiskTotal || !gDiskFree || buf->f_bsize == 0) return r;
+    uint64_t bs = (uint64_t)buf->f_bsize;
+    buf->f_blocks = (typeof(buf->f_blocks))([gDiskTotal unsignedLongLongValue] / bs);
+    buf->f_bfree  = (typeof(buf->f_bfree)) ([gDiskFree  unsignedLongLongValue] / bs);
+    buf->f_bavail = buf->f_bfree;
+    return r;
+}
+
+static int (*orig_statvfs)(const char *, struct statvfs *) = NULL;
+static int hook_statvfs(const char *path, struct statvfs *buf) {
+    int r = orig_statvfs(path, buf);
+    if (r != 0 || !gDiskTotal || !gDiskFree) return r;
+    unsigned long fs = buf->f_frsize > 0 ? buf->f_frsize : buf->f_bsize;
+    if (fs == 0) return r;
+    buf->f_blocks = (typeof(buf->f_blocks))([gDiskTotal unsignedLongLongValue] / fs);
+    buf->f_bfree  = (typeof(buf->f_bfree)) ([gDiskFree  unsignedLongLongValue] / fs);
+    buf->f_bavail = buf->f_bfree;
+    return r;
+}
+
+static CFDictionaryRef (*orig_CNCopyCurrentNetworkInfo)(CFStringRef) = NULL;
+static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
+    CFDictionaryRef orig = orig_CNCopyCurrentNetworkInfo(iface);
+    if (!gWifiMAC || !orig) return orig;
+    NSMutableDictionary *d = [(__bridge NSDictionary *)orig mutableCopy];
+    CFRelease(orig);
+    d[@"BSSID"] = gWifiMAC;
+    return (CFDictionaryRef)CFBridgingRetain(d);
+}
+
+static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
+static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
+    NSString *key = kcQueryKey(q);
+    if (shouldBlockKey(key)) {
+        tlog(@"kc_blocked", @{@"key": key ?: @"nil"});
+        if (result) *result = NULL;
+        return errSecItemNotFound;
+    }
+    OSStatus r = orig_SecItemCopyMatching(q, result);
+    if (key && isQunarKey(key))
+        tlog(@"kc_read", @{@"key": key, @"status": @(r)});
+    return r;
+}
+
+static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
+static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
+    NSString *key = kcQueryKey(attrs);
+    OSStatus r = orig_SecItemAdd(attrs, result);
+    if (r == errSecSuccess && key) {
+        tlog(@"kc_written", @{@"key": key});
+        if (isQunarKey(key)) {
+            @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
+            @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
+            saveKeychainAllowed();
+        }
+    }
+    return r;
+}
+
+static OSStatus (*orig_SecItemUpdate)(CFDictionaryRef, CFDictionaryRef);
+static OSStatus hook_SecItemUpdate(CFDictionaryRef q, CFDictionaryRef attrs) {
+    NSString *key = kcQueryKey(q);
+    OSStatus r = orig_SecItemUpdate(q, attrs);
+    if (r == errSecSuccess && key) {
+        tlog(@"kc_updated", @{@"key": key});
+        if (isQunarKey(key)) {
+            @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
+            @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
+            saveKeychainAllowed();
+        }
+    }
+    return r;
+}
+
+void installSpoofHooks(void) {
+    MSHookFunction((void *)statfs,  (void *)hook_statfs,  (void **)&orig_statfs);
+    MSHookFunction((void *)statvfs, (void *)hook_statvfs, (void **)&orig_statvfs);
+    MSHookFunction((void *)SecItemCopyMatching, (void *)hook_SecItemCopyMatching, (void **)&orig_SecItemCopyMatching);
+    MSHookFunction((void *)SecItemAdd,    (void *)hook_SecItemAdd,    (void **)&orig_SecItemAdd);
+    MSHookFunction((void *)SecItemUpdate, (void *)hook_SecItemUpdate, (void **)&orig_SecItemUpdate);
+    dlopen("/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration", RTLD_NOW);
+    void *fnCN = dlsym(RTLD_DEFAULT, "CNCopyCurrentNetworkInfo");
+    if (fnCN) MSHookFunction(fnCN, (void *)hook_CNCopyCurrentNetworkInfo, (void **)&orig_CNCopyCurrentNetworkInfo);
+    tlog(@"spoof_installed", nil);
+}

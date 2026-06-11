@@ -1,0 +1,8 @@
+Package: com.dev.qunarnewdevice
+Name: QunarNewDevice
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 去哪儿旅行 一键新机 — 设备指纹伪装 + 越狱检测绕过
+Maintainer: Dev
+Author: Dev
+Section: Tweaks

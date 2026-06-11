@@ -1,0 +1,16 @@
+# 编译产物
+Reverse/output/tweak/.theos/
+Reverse/output/tweak/packages/
+Reverse/output/tweak/obj/
+dist/
+
+# 设备文件
+files/*.ipa
+decompiled/
+
+# 日志
+*.log
+
+# 系统
+.DS_Store
+Thumbs.db
