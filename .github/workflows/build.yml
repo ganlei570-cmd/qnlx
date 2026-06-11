@@ -31,10 +31,10 @@ jobs:
           XCODE_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           ln -sf "$XCODE_SDK" $THEOS/sdks/iPhoneOS16.5.sdk
 
-      - name: Build deb (arm64 + arm64e)
+      - name: Build tweak deb (arm64 + arm64e)
         run: make -C Reverse/output/tweak package FINALPACKAGE=1
 
-      - name: Verify architectures
+      - name: Verify tweak architectures
         run: |
           DEB=$(ls Reverse/output/tweak/packages/*.deb | tail -1)
           mkdir -p /tmp/debcheck
@@ -44,6 +44,22 @@ jobs:
           DYLIB=$(find /tmp/debcheck -name "*.dylib" | head -1)
           [ -n "$DYLIB" ] && echo "=== architectures ===" && lipo -archs "$DYLIB"
 
+      - name: Build app IPA (arm64 + arm64e)
+        run: |
+          make -C ios_app_oc package FINALPACKAGE=1
+          DEB=$(ls ios_app_oc/packages/*.deb | tail -1)
+          mkdir -p /tmp/appcheck
+          cp "$DEB" /tmp/appcheck/app.deb
+          cd /tmp/appcheck && ar x app.deb
+          tar xf data.tar* -C /tmp/appcheck 2>/dev/null || true
+          APP=$(find /tmp/appcheck -name "YiJianXinJi.app" -type d | head -1)
+          if [ -n "$APP" ]; then
+            mkdir -p /tmp/appcheck/Payload
+            cp -r "$APP" /tmp/appcheck/Payload/
+            cd /tmp/appcheck && zip -r YiJianXinJi.ipa Payload/
+            echo "IPA_PATH=/tmp/appcheck/YiJianXinJi.ipa" >> $GITHUB_ENV
+          fi
+
       - name: Copy to dist/ with version number
         run: |
           mkdir -p dist
@@ -52,13 +68,14 @@ jobs:
           echo "NEXT_V=$NEXT" >> $GITHUB_ENV
           DEB=$(ls Reverse/output/tweak/packages/*.deb | tail -1)
           cp "$DEB" "dist/tweak_v${NEXT}.deb"
+          [ -f "$IPA_PATH" ] && cp "$IPA_PATH" "dist/app_v${NEXT}.ipa" || true
           echo "dist/tweak_v${NEXT}.deb"
 
       - name: Commit back to repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dist/tweak_v${{ env.NEXT_V }}.deb
+          git add dist/
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "build: v${{ env.NEXT_V }} arm64+arm64e [skip ci]"
           git push
