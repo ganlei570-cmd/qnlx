@@ -30,11 +30,6 @@ static NSArray<NSString *> *btnTitles(void) {
     self.title = @"一键新机";
     self.view.backgroundColor = CLR_BG;
     self.navigationItem.hidesBackButton = YES;
-    UIBarButtonItem *logout = [[UIBarButtonItem alloc]
-        initWithTitle:@"安全退出" style:UIBarButtonItemStylePlain
-        target:self action:@selector(onLogout)];
-    logout.tintColor = CLR_RED;
-    self.navigationItem.rightBarButtonItem = logout;
     [self buildUI];
 }
 
@@ -190,10 +185,6 @@ static NSArray<NSString *> *btnTitles(void) {
     BackupViewController *vc = [BackupViewController new];
     vc.restoreMode = YES;
     [self.navigationController pushViewController:vc animated:YES];
-}
-
-- (void)onLogout {
-    [self.navigationController popToRootViewControllerAnimated:YES];
 }
 
 - (void)showToast:(NSString *)msg color:(UIColor *)color {

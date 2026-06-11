@@ -1,5 +1,5 @@
 #import "AppDelegate.h"
-#import "LoginViewController.h"
+#import "MainViewController.h"
 
 @implementation AppDelegate
 
@@ -8,7 +8,7 @@
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
     self.window.backgroundColor = [UIColor whiteColor];
     UINavigationController *nav = [[UINavigationController alloc]
-        initWithRootViewController:[LoginViewController new]];
+        initWithRootViewController:[MainViewController new]];
     UIColor *blue = [UIColor colorWithRed:37/255.0 green:99/255.0 blue:235/255.0 alpha:1];
     nav.navigationBar.barStyle = UIBarStyleDefault;
     nav.navigationBar.translucent = NO;
