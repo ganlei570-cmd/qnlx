@@ -108,7 +108,7 @@ static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLe
 - (void)URLSession:(NSURLSession *)sess task:(NSURLSessionTask *)t didCompleteWithError:(NSError *)e {
     @try {
         NSString *u = t.currentRequest.URL.absoluteString ?: @"";
-        if ([u containsString:@"qunar.com"])
+        if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"])
             tlog(@"resp_done", @{
                 @"u": u.length > 120 ? [u substringToIndex:120] : u,
                 @"e": e.localizedDescription ?: @""
