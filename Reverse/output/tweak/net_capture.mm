@@ -149,7 +149,8 @@ static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLe
 
 static id (*orig_newSess)(id, SEL, NSURLSessionConfiguration *, id, NSOperationQueue *);
 static id hook_newSess(id s, SEL c, NSURLSessionConfiguration *cfg, id d, NSOperationQueue *q) {
-    if (d) {
+    // skip background sessions (identifier != nil) — avoids deadlock in CKCrashReporter
+    if (d && cfg && !cfg.identifier) {
         QunarNetSpy *spy = [QunarNetSpy new];
         spy.real = d;
         d = spy;

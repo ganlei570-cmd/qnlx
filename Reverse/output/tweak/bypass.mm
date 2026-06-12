@@ -84,10 +84,11 @@ static const char *hook_dyld_name(uint32_t idx) {
     for (uint32_t i = 0; i < total; i++) {
         const char *name = orig_dyld_name(i);
         if (shouldHideDylib(name)) continue;
-        if (visible == idx) return name;
+        if (visible == idx) return name ?: "";
         visible++;
     }
-    return orig_dyld_name(idx);
+    const char *r = orig_dyld_name(idx);
+    return r ?: "";
 }
 
 static int (*orig_connect)(int, const struct sockaddr *, socklen_t);
