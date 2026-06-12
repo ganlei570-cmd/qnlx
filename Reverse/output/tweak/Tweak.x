@@ -130,8 +130,35 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 %end
 %end
 
-// TODO: 去哪儿登录保护 — 需运行时 hook SecItemAdd/class-dump 定位 logout 类名
-// 候选待确认: QUAccountManager / QunarAccountService / ...
+// ── 越狱检测诊断 probe（只记录不修改返回值）──────────────────────
+%group GJailbreakProbe
+#define JB_PROBE(cls, sel) \
+%hook cls \
++ (BOOL)sel { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@#cls,@"s":@#sel,@"r":@(r)}); return r; } \
+%end
+
+JB_PROBE(AppInfo,            isJailBreak)
+JB_PROBE(AppInfo,            isJailBreakByEnv)
+JB_PROBE(AppInfo,            isJailBreakByStat)
+JB_PROBE(NQPUtility,         isJailBreak)
+JB_PROBE(NQPUtility,         isJailBreakByEnv)
+JB_PROBE(NQPUtility,         isJailBreakByStat)
+JB_PROBE(QPUtility,          isJailBreak)
+JB_PROBE(QPUtility,          isJailBreakByEnv)
+JB_PROBE(QPUtility,          isJailBreakByStat)
+JB_PROBE(CTDevice,           isJailBreak)
+JB_PROBE(GTCDeviceUtils,     isJailbreak)
+JB_PROBE(GTSDeviceUtils,     isJailbreak)
+JB_PROBE(BMapDeviceInfo,     isJailBreak)
+JB_PROBE(QDeviceProfileInfo, isJailBreak)
+JB_PROBE(MidelOBJ,           isJailbreak)
+JB_PROBE(CTPayFoundationUtil,isJailBreak)
+JB_PROBE(QTPUtils,           isJailbreak)
+%hook HKEDeviceInfo
++ (BOOL)isJailbroken { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"HKEDeviceInfo",@"s":@"isJailbroken",@"r":@(r)}); return r; }
+- (BOOL)checkJailbroken { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"HKEDeviceInfo",@"s":@"checkJailbroken",@"r":@(r)}); return r; }
+%end
+%end
 
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
@@ -150,6 +177,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
             %init(GAdSupport);
             dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_NOW);
             %init(GCoreTelephony);
+            %init(GJailbreakProbe);
         }
     }
 }
