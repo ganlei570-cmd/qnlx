@@ -27,12 +27,16 @@ static NSData *tryGunzip(const void *data, size_t len) {
 
 static BOOL isRelevant(NSString *s) {
     if (!s) return NO;
-    return [s containsString:@"qunar"]  || [s containsString:@"risk"]  ||
-           [s containsString:@"passport"] || [s containsString:@"login"] ||
+    return [s containsString:@"qunar"]     || [s containsString:@"risk"]       ||
+           [s containsString:@"passport"]  || [s containsString:@"login"]      ||
            [s containsString:@"\"data\":false"] || [s containsString:@"\"result\":false"] ||
-           [s containsString:@"verifycode"] || [s containsString:@"register"] ||
+           [s containsString:@"verifycode"] || [s containsString:@"register"]  ||
            [s containsString:@"Params error"] ||
-           [s containsString:@"风险"]  || [s containsString:@"异常"];
+           [s containsString:@"hotel"]     || [s containsString:@"roomList"]   ||
+           [s containsString:@"hotelList"] || [s containsString:@"errCode"]    ||
+           [s containsString:@"hotelId"]   || [s containsString:@"price"]      ||
+           [s containsString:@"风险"]      || [s containsString:@"异常"]        ||
+           [s containsString:@"错误"]      || [s containsString:@"失败"];
 }
 
 static OSStatus (*orig_SSLRead)(SSLContextRef, void *, size_t, size_t *);
@@ -84,11 +88,15 @@ static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLe
 - (void)URLSession:(NSURLSession *)sess dataTask:(NSURLSessionDataTask *)t didReceiveData:(NSData *)d {
     @try {
         NSString *u = t.currentRequest.URL.absoluteString ?: @"";
-        if ([u containsString:@"qunar.com"]) {
-            NSString *b = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] ?: @"[bin]";
+        if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"]) {
+            NSString *b = nil;
+            NSData *gz = tryGunzip(d.bytes, d.length);
+            if (gz) b = [[NSString alloc] initWithData:gz encoding:NSUTF8StringEncoding];
+            if (!b) b = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
+            if (!b) b = @"[bin]";
             tlog(@"resp_data", @{
-                @"u": u.length > 120 ? [u substringToIndex:120] : u,
-                @"b": b.length > 300 ? [b substringToIndex:300] : b
+                @"u": u.length > 200 ? [u substringToIndex:200] : u,
+                @"b": b.length > 500 ? [b substringToIndex:500] : b
             });
         }
     } @catch(id e) {}
