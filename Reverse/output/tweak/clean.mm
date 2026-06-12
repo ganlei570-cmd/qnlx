@@ -105,7 +105,7 @@ static void handleClearLogin(CFNotificationCenterRef c, void *o,
 }
 
 void initCleanHooks(void) {
-    NSString *pendingPath = @"/tmp/qunar_new_machine_pending";
+    NSString *pendingPath = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/qunar_new_machine_pending"];
     if ([[NSFileManager defaultManager] fileExistsAtPath:pendingPath]) {
         [[NSFileManager defaultManager] removeItemAtPath:pendingPath error:nil];
         tlog(@"new_machine_pending_detected", nil);
