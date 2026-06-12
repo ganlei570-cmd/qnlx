@@ -11,6 +11,7 @@
 #import "spoof.h"
 #import "clean.h"
 #import "tlog.h"
+#import "net_capture.h"
 
 // ── WKWebView SSL bypass ─────────────────────────────────────────
 static const char kWKNavSpyKey = 0;
