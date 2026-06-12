@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
+#import <WebKit/WebKit.h>
 #import "clean.h"
 #import "tlog.h"
 
@@ -80,10 +81,21 @@ static void handleClearSafari(CFNotificationCenterRef c, void *o,
     tlog(@"login_cleared", nil);
 }
 
+static void clearWKWebViewData(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSSet *types = [WKWebsiteDataStore allWebsiteDataTypes];
+        [[WKWebsiteDataStore defaultDataStore]
+            removeDataOfTypes:types
+            modifiedSince:[NSDate dateWithTimeIntervalSince1970:0]
+            completionHandler:^{ tlog(@"wk_data_cleared", nil); }];
+    });
+}
+
 void clearQunarLoginState(void) {
     clearQunarCookies();
     clearQunarDefaults();
     clearQunarLoginKeychain();
+    clearWKWebViewData();
     tlog(@"login_cleared", nil);
 }
 
