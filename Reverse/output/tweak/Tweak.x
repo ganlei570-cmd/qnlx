@@ -53,14 +53,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 @end
 
-// ── WKWebView JS 注入 + proxy ────────────────────────────────────
-%hook WKWebView
-- (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration {
-    injectCaptureScript(configuration);
-    return %orig(frame, configuration);
-}
-%end
-
+// ── NSURLSession 代理注入（proxy 文件存在时生效）────────────────
 %hook NSURLSessionConfiguration
 - (NSDictionary *)connectionProxyDictionary {
     NSString *host = captureProxyHost();

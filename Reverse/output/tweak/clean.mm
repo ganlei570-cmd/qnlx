@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <Security/Security.h>
 #import <WebKit/WebKit.h>
+#import <UIKit/UIKit.h>
 #import "clean.h"
 #import "tlog.h"
 
@@ -109,7 +110,15 @@ void initCleanHooks(void) {
     if ([[NSFileManager defaultManager] fileExistsAtPath:pendingPath]) {
         [[NSFileManager defaultManager] removeItemAtPath:pendingPath error:nil];
         tlog(@"new_machine_pending_detected", nil);
-        clearQunarLoginState();
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            NSURL *url = [NSURL URLWithString:@"qunariphone://uc/logout"];
+            [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:^(BOOL ok) {
+                tlog(@"logout_url_triggered", @{@"ok": @(ok)});
+            }];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                clearQunarLoginState();
+            });
+        });
     }
     CFNotificationCenterAddObserver(
         CFNotificationCenterGetDarwinNotifyCenter(),
