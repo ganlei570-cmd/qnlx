@@ -80,12 +80,16 @@ static void handleClearSafari(CFNotificationCenterRef c, void *o,
     tlog(@"login_cleared", nil);
 }
 
-static void handleClearLogin(CFNotificationCenterRef c, void *o,
-                              CFStringRef n, const void *obj, CFDictionaryRef i) {
+void clearQunarLoginState(void) {
     clearQunarCookies();
     clearQunarDefaults();
     clearQunarLoginKeychain();
     tlog(@"login_cleared", nil);
+}
+
+static void handleClearLogin(CFNotificationCenterRef c, void *o,
+                              CFStringRef n, const void *obj, CFDictionaryRef i) {
+    clearQunarLoginState();
 }
 
 void initCleanHooks(void) {

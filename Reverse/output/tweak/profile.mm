@@ -1,5 +1,6 @@
 #import "profile.h"
 #import "tlog.h"
+#import "clean.h"
 #import <Security/Security.h>
 
 NSString *gIDFV = nil;
@@ -124,5 +125,15 @@ void loadProfile(void) {
         [ud writeToFile:findActiveProfilePath() atomically:YES];
     }
     if (p[@"keychain"]) gKeychainClearSet = kcSetFromDict(p[@"keychain"]);
+
+    // 检测一键新机：IDFV 变了说明换机，自动清除登录态
+    NSString *lastIDFVPath = [qunarProfileDir() stringByAppendingPathComponent:@"last_idfv.txt"];
+    NSString *lastIDFV = [NSString stringWithContentsOfFile:lastIDFVPath encoding:NSUTF8StringEncoding error:nil];
+    if (lastIDFV && ![lastIDFV isEqualToString:gIDFV]) {
+        tlog(@"new_machine_detected", @{@"old": lastIDFV ?: @"", @"new": gIDFV});
+        clearQunarLoginState();
+    }
+    [gIDFV writeToFile:lastIDFVPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+
     tlog(@"profile_ok", @{@"idfv_prefix": [gIDFV substringToIndex:MIN(8u, gIDFV.length)]});
 }

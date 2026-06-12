@@ -3,6 +3,7 @@
 extern "C" {
 #endif
 void initCleanHooks(void);
+void clearQunarLoginState(void);
 #ifdef __cplusplus
 }
 #endif
