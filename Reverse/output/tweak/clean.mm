@@ -81,21 +81,25 @@ static void handleClearSafari(CFNotificationCenterRef c, void *o,
     tlog(@"login_cleared", nil);
 }
 
-static void clearWKWebViewData(void) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSSet *types = [WKWebsiteDataStore allWebsiteDataTypes];
-        [[WKWebsiteDataStore defaultDataStore]
-            removeDataOfTypes:types
-            modifiedSince:[NSDate dateWithTimeIntervalSince1970:0]
-            completionHandler:^{ tlog(@"wk_data_cleared", nil); }];
-    });
-}
-
 void clearQunarLoginState(void) {
-    clearQunarCookies();
-    clearQunarDefaults();
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *container = NSHomeDirectory();
+    NSString *lib = [container stringByAppendingPathComponent:@"Library"];
+
+    // 删 WebKit 目录（WKWebView cookie/localStorage/登录态）
+    for (NSString *sub in @[@"WebKit", @"Cookies", @"Application Support"]) {
+        NSString *path = [lib stringByAppendingPathComponent:sub];
+        [fm removeItemAtPath:path error:nil];
+    }
+
+    // 删 Preferences 里去哪儿相关 plist
+    NSString *prefsBase = @"/var/mobile/Library/Preferences";
+    for (NSString *f in [fm contentsOfDirectoryAtPath:prefsBase error:nil]) {
+        if ([f containsString:@"qunar"] || [f containsString:@"iphoneclient8"])
+            [fm removeItemAtPath:[prefsBase stringByAppendingPathComponent:f] error:nil];
+    }
+
     clearQunarLoginKeychain();
-    clearWKWebViewData();
     tlog(@"login_cleared", nil);
 }
 
