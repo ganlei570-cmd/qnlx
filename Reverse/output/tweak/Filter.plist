@@ -7,6 +7,7 @@
         <key>Bundles</key>
         <array>
             <string>com.qunar.iphoneclient8</string>
+            <string>com.apple.WebKit.Networking</string>
         </array>
     </dict>
 </dict>

