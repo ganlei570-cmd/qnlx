@@ -13,6 +13,8 @@
 #import "tlog.h"
 
 // ── WKWebView SSL bypass ─────────────────────────────────────────
+static const char kWKNavSpyKey = 0;
+
 @interface QunarWKNavSpy : NSObject <WKNavigationDelegate>
 @property (nonatomic, weak) id<WKNavigationDelegate> real;
 @end
@@ -46,6 +48,7 @@
     if (!delegate) { %orig(nil); return; }
     QunarWKNavSpy *spy = [QunarWKNavSpy new];
     spy.real = delegate;
+    objc_setAssociatedObject(self, &kWKNavSpyKey, spy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     %orig(spy);
 }
 %end
