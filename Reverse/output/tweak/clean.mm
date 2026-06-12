@@ -74,6 +74,10 @@ static void handleClearSafari(CFNotificationCenterRef c, void *o,
     NSFileManager *fm = [NSFileManager defaultManager];
     for (NSString *p in safariTargets())
         [fm removeItemAtPath:p error:nil];
+    clearQunarCookies();
+    clearQunarDefaults();
+    clearQunarLoginKeychain();
+    tlog(@"login_cleared", nil);
 }
 
 static void handleClearLogin(CFNotificationCenterRef c, void *o,
