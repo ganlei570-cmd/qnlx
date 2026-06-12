@@ -78,10 +78,18 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     return r;
 }
 
+static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
+
 static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
 static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     NSString *key = kcQueryKey(attrs);
     OSStatus r = orig_SecItemAdd(attrs, result);
+    if (r == errSecDuplicateItem && key && [gKeychainClearSet containsObject:key]) {
+        orig_SecItemDelete(attrs);
+        r = orig_SecItemAdd(attrs, result);
+        if (r == errSecSuccess)
+            tlog(@"kc_replaced", @{@"key": key});
+    }
     if (r == errSecSuccess && key) {
         tlog(@"kc_written", @{@"key": key});
         if (isQunarKey(key)) {
@@ -112,6 +120,7 @@ void installSpoofHooks(void) {
     MSHookFunction((void *)statfs,  (void *)hook_statfs,  (void **)&orig_statfs);
     MSHookFunction((void *)statvfs, (void *)hook_statvfs, (void **)&orig_statvfs);
     MSHookFunction((void *)SecItemCopyMatching, (void *)hook_SecItemCopyMatching, (void **)&orig_SecItemCopyMatching);
+    orig_SecItemDelete = SecItemDelete;
     MSHookFunction((void *)SecItemAdd,    (void *)hook_SecItemAdd,    (void **)&orig_SecItemAdd);
     MSHookFunction((void *)SecItemUpdate, (void *)hook_SecItemUpdate, (void **)&orig_SecItemUpdate);
     dlopen("/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration", RTLD_NOW);

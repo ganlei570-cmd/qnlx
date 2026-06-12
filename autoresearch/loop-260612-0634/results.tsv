@@ -1,0 +1,5 @@
+# metric_direction: higher_is_better
+# goal: 一键新机后去哪儿搜酒店不触发风控不闪退
+# verify: python scripts/python/verify_tlog.py
+iteration	timestamp	commit	metric	delta	status	description
+0	2026-06-12T06:34	6f9a007	1	0.0	baseline	pre-fix: app crashes after 新机 due to Keychain errSecDuplicateItem
