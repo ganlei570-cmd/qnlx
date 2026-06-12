@@ -233,11 +233,25 @@ static void hookEnvDetect(void) {
     MH("dlopen",  hook_dlopen,  &orig_dlopen);
 }
 
+// SSL pinning bypass — allows mitmproxy MITM
+static OSStatus (*orig_SecTrustEvaluate)(SecTrustRef, SecTrustResultType *);
+static OSStatus hook_SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *result) {
+    if (result) *result = kSecTrustResultProceed;
+    return errSecSuccess;
+}
+static bool (*orig_SecTrustEvaluateWithError)(SecTrustRef, CFErrorRef *);
+static bool hook_SecTrustEvaluateWithError(SecTrustRef trust, CFErrorRef *error) {
+    if (error) *error = NULL;
+    return true;
+}
+
 void installBypassHooks(void) {
     hookAntiDebug();
     hookEnvDetect();
     dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW);
     MH("IORegistryEntryCreateCFProperty", hook_IORegCreateCFProp, &orig_IORegCreateCFProp);
+    MH("SecTrustEvaluate", hook_SecTrustEvaluate, &orig_SecTrustEvaluate);
+    MH("SecTrustEvaluateWithError", hook_SecTrustEvaluateWithError, &orig_SecTrustEvaluateWithError);
     MSHookMessageEx(
         NSClassFromString(@"NSFileManager"),
         @selector(fileExistsAtPath:),
