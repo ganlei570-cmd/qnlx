@@ -52,6 +52,25 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 @end
 
+// ── WKWebView JS 注入 + proxy ────────────────────────────────────
+%hook WKWebView
+- (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration {
+    injectCaptureScript(configuration);
+    return %orig(frame, configuration);
+}
+%end
+
+%hook NSURLSessionConfiguration
+- (NSDictionary *)connectionProxyDictionary {
+    NSString *host = captureProxyHost();
+    if (!host.length) return %orig;
+    NSMutableDictionary *d = (%orig ? [%orig mutableCopy] : [NSMutableDictionary dictionary]);
+    d[@"HTTPEnable"]  = @1; d[@"HTTPProxy"]  = host; d[@"HTTPPort"]  = @8080;
+    d[@"HTTPSEnable"] = @1; d[@"HTTPSProxy"] = host; d[@"HTTPSPort"] = @8080;
+    return [d copy];
+}
+%end
+
 // ── WKWebView delegate hook ──────────────────────────────────────
 %hook WKWebView
 - (void)setNavigationDelegate:(id<WKNavigationDelegate>)delegate {
