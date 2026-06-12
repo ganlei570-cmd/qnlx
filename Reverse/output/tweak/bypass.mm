@@ -245,6 +245,11 @@ static bool hook_SecTrustEvaluateWithError(SecTrustRef trust, CFErrorRef *error)
     return true;
 }
 
+void installSSLBypassAlways(void) {
+    MH("SecTrustEvaluate",          hook_SecTrustEvaluate,          &orig_SecTrustEvaluate);
+    MH("SecTrustEvaluateWithError", hook_SecTrustEvaluateWithError, &orig_SecTrustEvaluateWithError);
+}
+
 void installBypassHooks(void) {
     hookAntiDebug();
     hookEnvDetect();

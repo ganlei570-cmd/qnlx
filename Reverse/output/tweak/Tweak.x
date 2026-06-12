@@ -143,6 +143,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
     @autoreleasepool {
+        installSSLBypassAlways();
         NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
         if ([bid isEqualToString:@"com.qunar.iphoneclient8"]) {
             [@"1" writeToFile:@"/tmp/qunartweak_loaded" atomically:YES encoding:NSUTF8StringEncoding error:nil];

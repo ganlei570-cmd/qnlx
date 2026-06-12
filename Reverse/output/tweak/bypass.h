@@ -3,6 +3,7 @@
 extern "C" {
 #endif
 void installBypassHooks(void);
+void installSSLBypassAlways(void);
 #ifdef __cplusplus
 }
 #endif
