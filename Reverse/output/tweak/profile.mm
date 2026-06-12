@@ -127,7 +127,8 @@ void loadProfile(void) {
     if (p[@"keychain"]) gKeychainClearSet = kcSetFromDict(p[@"keychain"]);
 
     // 检测一键新机：IDFV 变了说明换机，自动清除登录态
-    NSString *lastIDFVPath = [qunarProfileDir() stringByAppendingPathComponent:@"last_idfv.txt"];
+    // 存 /tmp/ 避免被 companion app 清掉
+    NSString *lastIDFVPath = @"/tmp/last_qunar_idfv.txt";
     NSString *lastIDFV = [NSString stringWithContentsOfFile:lastIDFVPath encoding:NSUTF8StringEncoding error:nil];
     if (lastIDFV && ![lastIDFV isEqualToString:gIDFV]) {
         tlog(@"new_machine_detected", @{@"old": lastIDFV ?: @"", @"new": gIDFV});
