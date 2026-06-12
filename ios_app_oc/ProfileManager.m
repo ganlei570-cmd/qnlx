@@ -277,6 +277,7 @@ static NSArray<NSString *> *sysVerPool(NSString *real) {
             self.activeBackupName = backupName;
             [backupName writeToFile:kActivePtr atomically:YES encoding:NSUTF8StringEncoding error:nil];
         }
+        [@"1" writeToFile:@"/tmp/qunar_new_machine_pending" atomically:YES encoding:NSUTF8StringEncoding error:nil];
         dispatch_async(dispatch_get_main_queue(), ^{ cb(YES, @"完成", err); });
     });
 }

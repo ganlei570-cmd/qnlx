@@ -53,16 +53,13 @@ static void clearQunarDefaults(void) {
 }
 
 static void clearQunarLoginKeychain(void) {
-    NSArray *loginServices = @[
-        @"com.qunar.qunartalk", @"com.qunar.passport",
-        @"com.qunar.iphoneclient8.login", @"com.qunar.account",
-        @"com.qunar.sso", @"com.qunar.user",
-    ];
+    NSArray *classes = @[(__bridge id)kSecClassGenericPassword,
+                         (__bridge id)kSecClassInternetPassword];
     int count = 0;
-    for (NSString *svc in loginServices) {
+    for (id cls in classes) {
         NSDictionary *q = @{
-            (__bridge id)kSecClass:       (__bridge id)kSecClassGenericPassword,
-            (__bridge id)kSecAttrService: svc,
+            (__bridge id)kSecClass:           cls,
+            (__bridge id)kSecAttrAccessGroup: @"H682X2BYS8.com.qunar.iphoneclient8",
         };
         OSStatus r = SecItemDelete((__bridge CFDictionaryRef)q);
         if (r == errSecSuccess) count++;
@@ -86,13 +83,11 @@ void clearQunarLoginState(void) {
     NSString *container = NSHomeDirectory();
     NSString *lib = [container stringByAppendingPathComponent:@"Library"];
 
-    // 删 WebKit 目录（WKWebView cookie/localStorage/登录态）
     for (NSString *sub in @[@"WebKit", @"Cookies", @"Application Support"]) {
         NSString *path = [lib stringByAppendingPathComponent:sub];
         [fm removeItemAtPath:path error:nil];
     }
 
-    // 删 Preferences 里去哪儿相关 plist
     NSString *prefsBase = @"/var/mobile/Library/Preferences";
     for (NSString *f in [fm contentsOfDirectoryAtPath:prefsBase error:nil]) {
         if ([f containsString:@"qunar"] || [f containsString:@"iphoneclient8"])
@@ -100,6 +95,7 @@ void clearQunarLoginState(void) {
     }
 
     clearQunarLoginKeychain();
+    clearQunarDefaults();
     tlog(@"login_cleared", nil);
 }
 
@@ -109,6 +105,12 @@ static void handleClearLogin(CFNotificationCenterRef c, void *o,
 }
 
 void initCleanHooks(void) {
+    NSString *pendingPath = @"/tmp/qunar_new_machine_pending";
+    if ([[NSFileManager defaultManager] fileExistsAtPath:pendingPath]) {
+        [[NSFileManager defaultManager] removeItemAtPath:pendingPath error:nil];
+        tlog(@"new_machine_pending_detected", nil);
+        clearQunarLoginState();
+    }
     CFNotificationCenterAddObserver(
         CFNotificationCenterGetDarwinNotifyCenter(),
         NULL,
