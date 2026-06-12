@@ -50,6 +50,23 @@
 }
 %end
 
+// ── NSURLConnection SSL bypass ───────────────────────────────────
+%hook NSURLConnection
+- (void)connection:(NSURLConnection *)conn
+    willSendRequestForAuthenticationChallenge:(NSURLAuthenticationChallenge *)ch {
+    if ([ch.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        [ch.sender useCredential:[NSURLCredential credentialForTrust:ch.protectionSpace.serverTrust]
+              forAuthenticationChallenge:ch];
+        tlog(@"conn_ssl_bypass", @{@"host": ch.protectionSpace.host ?: @""});
+    } else {
+        [ch.sender performDefaultHandlingForAuthenticationChallenge:ch];
+    }
+}
+- (BOOL)connection:(NSURLConnection *)conn canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)sp {
+    return [sp.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust] ? YES : %orig;
+}
+%end
+
 // ── UIKit hooks ──────────────────────────────────────────────────
 %hook UIDevice
 - (NSUUID *)identifierForVendor { return [[NSUUID alloc] initWithUUIDString:gIDFV]; }
