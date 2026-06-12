@@ -157,11 +157,29 @@ static id hook_newSess(id s, SEL c, NSURLSessionConfiguration *cfg, id d, NSOper
     return orig_newSess(s, c, cfg, d, q);
 }
 
+// 全量捕获：completion handler 方式的请求（无 delegate）
+static id (*orig_dataTaskReq)(id, SEL, NSURLRequest *, void *);
+static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
+    @try {
+        NSString *u = req.URL.absoluteString ?: @"";
+        if ([u containsString:@"qunar"]) {
+            tlog(@"req_all", @{@"u": u.length > 200 ? [u substringToIndex:200] : u,
+                               @"m": req.HTTPMethod ?: @"GET"});
+        }
+    } @catch(id e) {}
+    return orig_dataTaskReq(self, cmd, req, handler);
+}
+
 void installNetCaptureHooks(void) {
     void *fnr = dlsym(RTLD_DEFAULT, "SSLRead");
     if (fnr) MSHookFunction(fnr, (void *)hook_SSLRead, (void **)&orig_SSLRead);
     void *fnw = dlsym(RTLD_DEFAULT, "SSLWrite");
     if (fnw) MSHookFunction(fnw, (void *)hook_SSLWrite, (void **)&orig_SSLWrite);
+    MSHookMessageEx(
+        [NSURLSession class],
+        @selector(dataTaskWithRequest:completionHandler:),
+        (IMP)hook_dataTaskReq,
+        (IMP *)&orig_dataTaskReq);
     MSHookMessageEx(
         object_getClass(NSClassFromString(@"NSURLSession")),
         @selector(sessionWithConfiguration:delegate:delegateQueue:),
