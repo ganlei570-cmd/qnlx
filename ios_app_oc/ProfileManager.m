@@ -8,8 +8,12 @@ static NSString *const kBackupDir  = @"/var/mobile/Documents/qunar_backups";
 static NSString *const kActivePtr  = @"/var/mobile/Documents/qunar_backups/active_backup";
 
 static NSArray<NSString *> *kcKeys(void) {
-    // 去哪儿 Keychain key 待运行时 hook 发现后补充
-    return @[];
+    return @[
+        @"com.qunar.iphoneclient8.kClientIDKeychainKey",
+        @"com.qunar.client.bc",
+        @"com.qunar.flight.bcd",
+        @"com.qunar.flight.bxcd",
+    ];
 }
 
 static NSArray<NSString *> *sysVerPool(NSString *real) {

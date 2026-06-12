@@ -35,8 +35,12 @@ void saveKeychainAllowed(void) {
 }
 
 static NSMutableSet<NSString *> *defaultKCSet(void) {
-    // 初始为空；运行时通过 SecItemAdd log 发现去哪儿的 Keychain key 后补充
-    return [NSMutableSet set];
+    return [NSMutableSet setWithArray:@[
+        @"com.qunar.iphoneclient8.kClientIDKeychainKey/com.qunar.iphoneclient8",
+        @"com.qunar.client.bc/client_bc",
+        @"com.qunar.flight.bcd/flight_data",
+        @"com.qunar.flight.bxcd/flight_data",
+    ]];
 }
 
 static NSString *findActiveProfilePath(void) {
