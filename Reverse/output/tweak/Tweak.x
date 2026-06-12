@@ -22,10 +22,20 @@ static const char kWKNavSpyKey = 0;
 @implementation QunarWKNavSpy
 - (BOOL)respondsToSelector:(SEL)sel {
     if (sel == @selector(webView:didReceiveAuthenticationChallenge:completionHandler:)) return YES;
+    if (sel == @selector(webView:decidePolicyForNavigationAction:decisionHandler:)) return YES;
     return [self.real respondsToSelector:sel];
 }
 - (id)forwardingTargetForSelector:(SEL)sel {
     return self.real;
+}
+- (void)webView:(WKWebView *)wv
+decidePolicyForNavigationAction:(WKNavigationAction *)action
+decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
+    tlog(@"wk_nav", @{@"url": action.request.URL.absoluteString ?: @""});
+    if ([self.real respondsToSelector:_cmd])
+        [self.real webView:wv decidePolicyForNavigationAction:action decisionHandler:handler];
+    else
+        handler(WKNavigationActionPolicyAllow);
 }
 - (void)webView:(WKWebView *)wv
     didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)ch
