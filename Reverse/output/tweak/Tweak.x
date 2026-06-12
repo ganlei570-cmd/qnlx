@@ -4,12 +4,51 @@
 
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
+#import <WebKit/WebKit.h>
 #import <dlfcn.h>
 #import "profile.h"
 #import "bypass.h"
 #import "spoof.h"
 #import "clean.h"
 #import "tlog.h"
+
+// ── WKWebView SSL bypass ─────────────────────────────────────────
+@interface QunarWKNavSpy : NSObject <WKNavigationDelegate>
+@property (nonatomic, weak) id<WKNavigationDelegate> real;
+@end
+
+@implementation QunarWKNavSpy
+- (BOOL)respondsToSelector:(SEL)sel {
+    if (sel == @selector(webView:didReceiveAuthenticationChallenge:completionHandler:)) return YES;
+    return [self.real respondsToSelector:sel];
+}
+- (id)forwardingTargetForSelector:(SEL)sel {
+    return self.real;
+}
+- (void)webView:(WKWebView *)wv
+    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)ch
+    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))cb {
+    if ([ch.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        cb(NSURLSessionAuthChallengeUseCredential,
+           [NSURLCredential credentialForTrust:ch.protectionSpace.serverTrust]);
+        tlog(@"wk_ssl_bypass", @{@"host": ch.protectionSpace.host ?: @""});
+    } else if ([self.real respondsToSelector:_cmd]) {
+        [self.real webView:wv didReceiveAuthenticationChallenge:ch completionHandler:cb];
+    } else {
+        cb(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    }
+}
+@end
+
+// ── WKWebView delegate hook ──────────────────────────────────────
+%hook WKWebView
+- (void)setNavigationDelegate:(id<WKNavigationDelegate>)delegate {
+    if (!delegate) { %orig(nil); return; }
+    QunarWKNavSpy *spy = [QunarWKNavSpy new];
+    spy.real = delegate;
+    %orig(spy);
+}
+%end
 
 // ── UIKit hooks ──────────────────────────────────────────────────
 %hook UIDevice

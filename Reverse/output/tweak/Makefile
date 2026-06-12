@@ -9,7 +9,7 @@ TWEAK_NAME = QunarNewDevice
 
 QunarNewDevice_FILES        = Tweak.x bypass.mm net_capture.mm spoof.mm profile.mm clean.mm tlog.mm
 QunarNewDevice_CFLAGS       = -fobjc-arc
-QunarNewDevice_FRAMEWORKS   = UIKit Foundation Security CoreFoundation AdSupport CoreTelephony SystemConfiguration IOKit
+QunarNewDevice_FRAMEWORKS   = UIKit Foundation Security CoreFoundation AdSupport CoreTelephony SystemConfiguration IOKit WebKit
 QunarNewDevice_LIBRARIES    = substrate z
 
 include $(THEOS)/makefiles/tweak.mk
