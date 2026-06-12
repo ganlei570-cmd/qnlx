@@ -111,6 +111,32 @@ static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLe
         [r URLSession:sess task:t didCompleteWithError:e];
 }
 
+- (void)URLSession:(NSURLSession *)sess
+    didReceiveChallenge:(NSURLAuthenticationChallenge *)ch
+    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))cb {
+    if ([ch.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        cb(NSURLSessionAuthChallengeUseCredential,
+           [NSURLCredential credentialForTrust:ch.protectionSpace.serverTrust]);
+    } else {
+        id r = self.real;
+        if (r && [r respondsToSelector:_cmd]) [r URLSession:sess didReceiveChallenge:ch completionHandler:cb];
+        else cb(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    }
+}
+
+- (void)URLSession:(NSURLSession *)sess task:(NSURLSessionTask *)t
+    didReceiveChallenge:(NSURLAuthenticationChallenge *)ch
+    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))cb {
+    if ([ch.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        cb(NSURLSessionAuthChallengeUseCredential,
+           [NSURLCredential credentialForTrust:ch.protectionSpace.serverTrust]);
+    } else {
+        id r = self.real;
+        if (r && [r respondsToSelector:_cmd]) [r URLSession:sess task:t didReceiveChallenge:ch completionHandler:cb];
+        else cb(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    }
+}
+
 @end
 
 static id (*orig_newSess)(id, SEL, NSURLSessionConfiguration *, id, NSOperationQueue *);
