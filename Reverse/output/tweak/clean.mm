@@ -84,7 +84,7 @@ void clearQunarLoginState(void) {
     NSString *container = NSHomeDirectory();
     NSString *lib = [container stringByAppendingPathComponent:@"Library"];
 
-    for (NSString *sub in @[@"WebKit", @"Cookies", @"Application Support", @"kvStore"]) {
+    for (NSString *sub in @[@"WebKit", @"Cookies", @"Application Support"]) {
         NSString *path = [lib stringByAppendingPathComponent:sub];
         [fm removeItemAtPath:path error:nil];
     }
