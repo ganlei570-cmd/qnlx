@@ -32,6 +32,7 @@ static NSURLRequest *stripFpFromSlugger(NSURLRequest *req) {
     if (![req valueForHTTPHeaderField:@"fp"]) return req;
     NSMutableURLRequest *mr = [req mutableCopy];
     [mr setValue:@"" forHTTPHeaderField:@"fp"];
+    tlog(@"fp_stripped", @{@"u": req.URL.absoluteString ?: @""});
     return [mr copy];
 }
 
