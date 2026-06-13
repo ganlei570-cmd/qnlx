@@ -25,6 +25,16 @@ static NSData *tryGunzip(const void *data, size_t len) {
     return out;
 }
 
+// 移除 slugger 请求的 fp 风控指纹 header
+static NSURLRequest *stripFpFromSlugger(NSURLRequest *req) {
+    if (!req) return req;
+    if (![req.URL.absoluteString containsString:@"slugger.qunar.com"]) return req;
+    if (![req valueForHTTPHeaderField:@"fp"]) return req;
+    NSMutableURLRequest *mr = [req mutableCopy];
+    [mr setValue:@"" forHTTPHeaderField:@"fp"];
+    return [mr copy];
+}
+
 static BOOL isRelevant(NSString *s) {
     if (!s) return NO;
     return [s containsString:@"qunar"]     || [s containsString:@"risk"]       ||
@@ -161,6 +171,7 @@ static id hook_newSess(id s, SEL c, NSURLSessionConfiguration *cfg, id d, NSOper
 // 全量捕获：completion handler 方式的请求（无 delegate）
 static id (*orig_dataTaskReq)(id, SEL, NSURLRequest *, void *);
 static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
+    req = stripFpFromSlugger(req);
     @try {
         NSString *u = req.URL.absoluteString ?: @"";
         if ([u containsString:@"qunar"]) {
@@ -169,6 +180,13 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
         }
     } @catch(id e) {}
     return orig_dataTaskReq(self, cmd, req, handler);
+}
+
+// delegate-based dataTask（h_hlist 走这条路）
+static id (*orig_dataTaskReqDel)(id, SEL, NSURLRequest *);
+static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
+    req = stripFpFromSlugger(req);
+    return orig_dataTaskReqDel(self, cmd, req);
 }
 
 // ── WKWebView JS 注入辅助（供 Tweak.x 调用）─────────────────────
@@ -219,4 +237,9 @@ void installNetCaptureHooks(void) {
         @selector(sessionWithConfiguration:delegate:delegateQueue:),
         (IMP)hook_newSess,
         (IMP *)&orig_newSess);
+    MSHookMessageEx(
+        [NSURLSession class],
+        @selector(dataTaskWithRequest:),
+        (IMP)hook_dataTaskReqDel,
+        (IMP *)&orig_dataTaskReqDel);
 }
