@@ -122,8 +122,15 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
     %orig;
 }
 - (void)fetchSmsCode:(id)param {
-    tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil",
-                         @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+    tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil"});
+    if (!param) {
+        NSString *phone = [self performSelector:@selector(qPhoneStr)];
+        tlog(@"fetch_bypass", @{@"phone": phone ?: @"nil"});
+        if (phone.length) {
+            [self performSelector:@selector(sendSMSCode:) withObject:phone];
+            return;
+        }
+    }
     %orig;
 }
 - (void)sendSMSCode:(id)param {
