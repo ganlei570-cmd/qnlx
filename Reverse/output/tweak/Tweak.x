@@ -116,6 +116,10 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 %end
 
 // ── 按钮点击诊断 ─────────────────────────────────────────────────
+@interface QSMSCodeLoginVC : NSObject
+- (NSString *)qPhoneStr;
+@end
+
 %hook QSMSCodeLoginVC
 - (void)getSmsCodeClick {
     tlog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"m":@"getSmsCodeClick"});
@@ -124,10 +128,10 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 - (void)fetchSmsCode:(id)param {
     tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil"});
     if (!param) {
-        NSString *phone = [self performSelector:@selector(qPhoneStr)];
+        NSString *phone = [self qPhoneStr];
         tlog(@"fetch_bypass", @{@"phone": phone ?: @"nil"});
         if (phone.length) {
-            [self performSelector:@selector(sendSMSCode:) withObject:phone];
+            [self sendSMSCode:phone];
             return;
         }
     }
