@@ -18,6 +18,7 @@
 #import "profile.h"
 #import "net_capture.h"
 #import <CommonCrypto/CommonDigest.h>
+#import <mach-o/dyld_images.h>
 
 static const char * const kJailPaths[] = {
     "/var/jb", "/private/var/jb",
@@ -244,8 +245,34 @@ static CFTypeRef hook_IORegCreateCFProp(mach_port_t entry, CFStringRef key, CFAl
 
 static kern_return_t (*orig_task_info)(task_name_t, task_flavor_t, task_info_t, mach_msg_type_number_t *);
 static kern_return_t hook_task_info(task_name_t t, task_flavor_t f, task_info_t info, mach_msg_type_number_t *cnt) {
-    orig_task_info(t, f, info, cnt);
-    return KERN_SUCCESS;
+    kern_return_t r = orig_task_info(t, f, info, cnt);
+    if (r != KERN_SUCCESS || f != TASK_DYLD_INFO || !info) return r;
+    task_dyld_info_data_t *di = (task_dyld_info_data_t *)info;
+    if (!di->all_image_info_addr) return r;
+    const struct dyld_all_image_infos *real =
+        (const struct dyld_all_image_infos *)(uintptr_t)di->all_image_info_addr;
+    if (!real || !real->infoArray || real->infoArrayCount == 0 || real->infoArrayCount > 4096) return r;
+    uint32_t total = real->infoArrayCount;
+    struct dyld_image_info *filtered =
+        (struct dyld_image_info *)malloc(total * sizeof(struct dyld_image_info));
+    if (!filtered) return r;
+    uint32_t hidden = 0, visible = 0;
+    for (uint32_t i = 0; i < total; i++) {
+        if (shouldHideDylib(real->infoArray[i].imageFilePath)) hidden++;
+        else filtered[visible++] = real->infoArray[i];
+    }
+    if (hidden == 0) { free(filtered); return r; }
+    size_t sz = (size_t)(di->all_image_info_size > 0
+        ? di->all_image_info_size : sizeof(struct dyld_all_image_infos));
+    struct dyld_all_image_infos *fake =
+        (struct dyld_all_image_infos *)malloc(sz);
+    if (!fake) { free(filtered); return r; }
+    memcpy(fake, real, sz);
+    fake->infoArrayCount = visible;
+    fake->infoArray = (const struct dyld_image_info *)filtered;
+    di->all_image_info_addr = (mach_vm_address_t)(uintptr_t)fake;
+    tlog(@"ti_filtered", @{@"t": @(total), @"h": @(hidden)});
+    return r;
 }
 
 static kern_return_t (*orig_task_exc_ports)(task_t, exception_mask_t, exception_mask_array_t, mach_msg_type_number_t *, exception_handler_array_t, exception_behavior_array_t, exception_flavor_array_t);
