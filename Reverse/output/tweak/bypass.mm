@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import "tlog.h"
 #import <sys/sysctl.h>
+#include <errno.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <sys/socket.h>
 #import <netinet/in.h>
@@ -103,7 +104,12 @@ static int (*orig_connect)(int, const struct sockaddr *, socklen_t);
 static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
     if (sa && sa->sa_family == AF_INET) {
         uint16_t port = ntohs(((const struct sockaddr_in *)sa)->sin_port);
-        if (port == 27042 || port == 27043) return -1;
+        if (port == 22 || port == 44 || port == 4444 ||
+            port == 27042 || port == 27043 || port == 46952) {
+            tlog(@"connect_blocked", @{@"port": @(port)});
+            errno = ECONNREFUSED;
+            return -1;
+        }
     }
     return orig_connect(fd, sa, sl);
 }

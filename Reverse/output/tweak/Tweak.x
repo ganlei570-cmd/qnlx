@@ -122,7 +122,12 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
     %orig;
 }
 - (void)fetchSmsCode:(id)param {
-    tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil"});
+    tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil",
+                         @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+    %orig;
+}
+- (void)sendSMSCode:(id)param {
+    tlog(@"send_sms", @{@"param": [param description] ?: @"nil"});
     %orig;
 }
 %end
