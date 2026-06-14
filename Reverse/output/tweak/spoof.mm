@@ -116,6 +116,18 @@ static OSStatus hook_SecItemUpdate(CFDictionaryRef q, CFDictionaryRef attrs) {
     return r;
 }
 
+static id (*orig_advertisingIdentifier)(id, SEL);
+static id hook_advertisingIdentifier(id self, SEL cmd) {
+    if (gIDFA && gIDFA.length > 0) return [[NSUUID alloc] initWithUUIDString:gIDFA] ?: orig_advertisingIdentifier(self, cmd);
+    return orig_advertisingIdentifier(self, cmd);
+}
+
+static BOOL (*orig_isAdTrackingEnabled)(id, SEL);
+static BOOL hook_isAdTrackingEnabled(id self, SEL cmd) { return YES; }
+
+static BOOL (*orig_isATTAuthorized)(id, SEL);
+static BOOL hook_isATTAuthorized(id self, SEL cmd) { return YES; }
+
 void installSpoofHooks(void) {
     MSHookFunction((void *)statfs,  (void *)hook_statfs,  (void **)&orig_statfs);
     MSHookFunction((void *)statvfs, (void *)hook_statvfs, (void **)&orig_statvfs);
@@ -126,5 +138,14 @@ void installSpoofHooks(void) {
     dlopen("/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration", RTLD_NOW);
     void *fnCN = dlsym(RTLD_DEFAULT, "CNCopyCurrentNetworkInfo");
     if (fnCN) MSHookFunction(fnCN, (void *)hook_CNCopyCurrentNetworkInfo, (void **)&orig_CNCopyCurrentNetworkInfo);
+    Class ASClass = NSClassFromString(@"ASIdentifierManager");
+    if (ASClass) {
+        MSHookMessageEx(ASClass, @selector(advertisingIdentifier),
+            (IMP)hook_advertisingIdentifier, (IMP *)&orig_advertisingIdentifier);
+        MSHookMessageEx(ASClass, @selector(isAdvertisingTrackingEnabled),
+            (IMP)hook_isAdTrackingEnabled, (IMP *)&orig_isAdTrackingEnabled);
+        MSHookMessageEx(ASClass, @selector(isATTAuthorizationStatusAuthorized),
+            (IMP)hook_isATTAuthorized, (IMP *)&orig_isATTAuthorized);
+    }
     tlog(@"spoof_installed", nil);
 }
