@@ -89,6 +89,7 @@ static const char *hook_class_getImageName(Class cls) {
     return n ?: "";
 }
 
+static CFAbsoluteTime gStartTime = 0;
 static int gDyldLogDone = 0;
 static int gImgNamesLogDone = 0;
 static const char **(*orig_objc_copyImageNames)(unsigned int *);
@@ -141,13 +142,25 @@ static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
 }
 
 static int (*orig_access)(const char *, int);
-static int hook_access(const char *p, int m) { return isJailPath(p) ? -1 : orig_access(p, m); }
+static int hook_access(const char *p, int m) {
+    if (isJailPath(p)) return -1;
+    int r = orig_access(p, m);
+    if (r == 0 && p && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 2.0)
+        tlog(@"access_ok", @{@"p": @(p)});
+    return r;
+}
 
 static FILE *(*orig_fopen)(const char *, const char *);
 static FILE *hook_fopen(const char *p, const char *m) { return isJailPath(p) ? NULL : orig_fopen(p, m); }
 
 static int (*orig_stat)(const char *, struct stat *);
-static int hook_stat(const char *p, struct stat *s) { return isJailPath(p) ? -1 : orig_stat(p, s); }
+static int hook_stat(const char *p, struct stat *s) {
+    if (isJailPath(p)) return -1;
+    int r = orig_stat(p, s);
+    if (r == 0 && p && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 2.0)
+        tlog(@"stat_ok", @{@"p": @(p)});
+    return r;
+}
 
 static int (*orig_stat64)(const char *, void *);
 static int hook_stat64(const char *p, void *s) { return isJailPath(p) ? -1 : orig_stat64(p, s); }
@@ -327,5 +340,6 @@ void installBypassHooks(void) {
         (IMP)hook_fileExistsIsDir,
         (IMP *)&orig_fileExistsIsDir);
     installNetCaptureHooks();
+    gStartTime = CFAbsoluteTimeGetCurrent();
     tlog(@"bypass_installed", nil);
 }

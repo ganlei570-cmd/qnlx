@@ -71,6 +71,11 @@ static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
 static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
 static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     NSString *key = kcQueryKey(q);
+    if (key && [key containsString:@"__gxsdk_reserved_key104__"]) {
+        if (result) *result = CFBridgingRetain([@"1" dataUsingEncoding:NSUTF8StringEncoding]);
+        tlog(@"kc_key104_spoofed", @{@"key": key});
+        return errSecSuccess;
+    }
     if (shouldBlockKey(key)) {
         tlog(@"kc_blocked", @{@"key": key ?: @"nil"});
         if (result) *result = NULL;
