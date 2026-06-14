@@ -62,6 +62,7 @@ static int hook_sysctl(int *mib, u_int nl, void *old, size_t *osz, void *n, size
 
 static uint32_t (*orig_dyld_count)(void);
 static const char *(*orig_dyld_name)(uint32_t);
+static const char *(*orig_class_getImageName)(Class);
 
 static BOOL shouldHideDylib(const char *name) {
     if (!name) return NO;
@@ -76,6 +77,11 @@ static uint32_t hook_dyld_count(void) {
     for (uint32_t i = 0; i < total; i++)
         if (shouldHideDylib(orig_dyld_name(i))) hidden++;
     return total - hidden;
+}
+
+static const char *hook_class_getImageName(Class cls) {
+    const char *n = orig_class_getImageName(cls);
+    return n ?: "";
 }
 
 static const char *hook_dyld_name(uint32_t idx) {
@@ -211,8 +217,9 @@ static BOOL hook_fileExistsIsDir(id self, SEL cmd, NSString *path, BOOL *isDir) 
 static void hookAntiDebug(void) {
     MH("ptrace",  hook_ptrace,  &orig_ptrace);
     MH("sysctl",  hook_sysctl,  &orig_sysctl);
-    MH("_dyld_image_count",    hook_dyld_count, &orig_dyld_count);
-    MH("_dyld_get_image_name", hook_dyld_name,  &orig_dyld_name);
+    MH("_dyld_image_count",    hook_dyld_count,          &orig_dyld_count);
+    MH("_dyld_get_image_name", hook_dyld_name,           &orig_dyld_name);
+    MH("class_getImageName",   hook_class_getImageName,  &orig_class_getImageName);
     MH("sysctlbyname", hook_sysctlbyname, &orig_sysctlbyname);
     MH("task_info", hook_task_info, &orig_task_info);
     MH("task_get_exception_ports", hook_task_exc_ports, &orig_task_exc_ports);
