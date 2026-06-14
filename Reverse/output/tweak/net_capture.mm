@@ -178,6 +178,16 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
         if ([u containsString:@"qunar"]) {
             tlog(@"req_all", @{@"u": u.length > 200 ? [u substringToIndex:200] : u,
                                @"m": req.HTTPMethod ?: @"GET"});
+            if ([u containsString:@"slugger"] || [u containsString:@"passport"]) {
+                NSData *body = req.HTTPBody;
+                if (body.length > 0) {
+                    NSString *bs = [[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding];
+                    tlog(@"req_body", @{
+                        @"u": u.length > 100 ? [u substringToIndex:100] : u,
+                        @"b": (bs ?: @"[binary]").length > 600 ? [(bs ?: @"[binary]") substringToIndex:600] : (bs ?: @"[binary]")
+                    });
+                }
+            }
         }
     } @catch(id e) {}
     return orig_dataTaskReq(self, cmd, req, handler);
