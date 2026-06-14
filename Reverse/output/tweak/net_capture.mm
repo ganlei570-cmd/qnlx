@@ -25,18 +25,6 @@ static NSData *tryGunzip(const void *data, size_t len) {
     return out;
 }
 
-static BOOL isRegisterQrt(NSString *url) {
-    static NSSet *kRegQrts;
-    static dispatch_once_t t;
-    dispatch_once(&t, ^{
-        kRegQrts = [NSSet setWithObjects:@"p_ucGetVcodeV2", @"p_ucVerifyVcodeV2",
-                    @"p_ucRegister", @"p_ucRegisterV2", @"p_ucRegisterV3", nil];
-    });
-    for (NSString *q in kRegQrts)
-        if ([url containsString:q]) return YES;
-    return NO;
-}
-
 // fp 剥离已禁用：fp 现在基于完全伪造的设备身份（IDFV+IDFA+hardware_uuid+serial 全来自 profile）
 // 剥离反而会造成「普通请求 fp="" + 注册请求 fp=真实值」的 bot 特征，触发限速
 static NSURLRequest *stripFpFromSlugger(NSURLRequest *req) {
