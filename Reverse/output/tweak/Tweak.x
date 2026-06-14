@@ -119,27 +119,34 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 @interface QSMSCodeLoginVC : NSObject
 - (NSString *)qPhoneStr;
 - (void)sendSMSCode:(id)param;
+- (void)setQPhoneStr:(NSString *)phone;
 @end
+
+static NSString *gCachedPhone = nil;
 
 %hook QSMSCodeLoginVC
 - (void)getSmsCodeClick {
     tlog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"m":@"getSmsCodeClick"});
     %orig;
 }
-- (void)fetchSmsCode:(id)param {
-    tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil"});
-    if (!param) {
-        NSString *phone = [self qPhoneStr];
-        tlog(@"fetch_bypass", @{@"phone": phone ?: @"nil"});
-        if (phone.length) {
-            [self sendSMSCode:phone];
-            return;
-        }
+- (void)setQPhoneStr:(NSString *)phone {
+    if (phone.length) {
+        gCachedPhone = [phone copy];
+        tlog(@"set_phone", @{@"phone": phone});
     }
+    %orig;
+}
+- (void)fetchSmsCode:(id)param {
+    tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil", @"cached": gCachedPhone ?: @"nil"});
     %orig;
 }
 - (void)sendSMSCode:(id)param {
     tlog(@"send_sms", @{@"param": [param description] ?: @"nil"});
+    if (!param && gCachedPhone.length) {
+        tlog(@"send_bypass", @{@"phone": gCachedPhone});
+        %orig(gCachedPhone);
+        return;
+    }
     %orig;
 }
 %end
