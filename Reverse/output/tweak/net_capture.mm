@@ -4,6 +4,7 @@
 #import <dlfcn.h>
 #import <zlib.h>
 #import <substrate.h>
+#import "profile.h"
 #import "tlog.h"
 #import "net_capture.h"
 
