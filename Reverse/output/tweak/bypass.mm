@@ -144,30 +144,6 @@ static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
     return orig_connect(fd, sa, sl);
 }
 
-static int (*orig_open)(const char *, int, ...);
-static int hook_open(const char *p, int flags, ...) {
-    if (isJailPath(p)) {
-        if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
-            if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-                tlog(@"open_blocked", @{@"p": @(p)});
-                gInTlog = 0;
-            }
-        }
-        errno = ENOENT; return -1;
-    }
-    va_list args; va_start(args, flags);
-    int mode = va_arg(args, int); va_end(args);
-    return orig_open(p, flags, mode);
-}
-
-static int (*orig_openat)(int, const char *, int, ...);
-static int hook_openat(int dirfd, const char *p, int flags, ...) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
-    va_list args; va_start(args, flags);
-    int mode = va_arg(args, int); va_end(args);
-    return orig_openat(dirfd, p, flags, mode);
-}
-
 static int (*orig_access)(const char *, int);
 static int hook_access(const char *p, int m) {
     if (isJailPath(p)) {
@@ -370,8 +346,6 @@ static void hookAntiDebug(void) {
 
 static void hookEnvDetect(void) {
     MH("connect",  hook_connect,  &orig_connect);
-    MH("open",     hook_open,     &orig_open);
-    MH("openat",   hook_openat,   &orig_openat);
     MH("access",   hook_access,   &orig_access);
     MH("fopen",    hook_fopen,    &orig_fopen);
     MH("stat",     hook_stat,     &orig_stat);
