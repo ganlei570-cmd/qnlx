@@ -256,10 +256,8 @@ static CFTypeRef hook_IORegCreateCFProp(mach_port_t entry, CFStringRef key, CFAl
 
 static kern_return_t (*orig_task_info)(task_name_t, task_flavor_t, task_info_t, mach_msg_type_number_t *);
 static kern_return_t hook_task_info(task_name_t t, task_flavor_t f, task_info_t info, mach_msg_type_number_t *cnt) {
-    kern_return_t r = orig_task_info(t, f, info, cnt);
-    if (r == KERN_SUCCESS && f == 11 /* TASK_DYLD_INFO */ && info && cnt && *cnt >= 5)
-        memset(info, 0, 5 * sizeof(integer_t));
-    return r;
+    orig_task_info(t, f, info, cnt);
+    return KERN_SUCCESS;
 }
 
 static kern_return_t (*orig_task_exc_ports)(task_t, exception_mask_t, exception_mask_array_t, mach_msg_type_number_t *, exception_handler_array_t, exception_behavior_array_t, exception_flavor_array_t);
