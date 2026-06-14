@@ -2,6 +2,8 @@
 #import "tlog.h"
 #import <sys/sysctl.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <sys/socket.h>
 #import <netinet/in.h>
@@ -250,8 +252,35 @@ static void hookAntiDebug(void) {
     MH("kill",  hook_kill,  &orig_kill);
 }
 
+// ── 诊断：open() jail路径 ────────────────────────────────────────
+static int (*orig_open)(const char *, int, ...);
+static int hook_open(const char *p, int flags, ...) {
+    if (isJailPath(p)) tlog(@"open_jail", @{@"p": @(p)});
+    mode_t mode = 0;
+    if (flags & O_CREAT) {
+        va_list ap; va_start(ap, flags);
+        mode = (mode_t)va_arg(ap, int);
+        va_end(ap);
+    }
+    return orig_open(p, flags, mode);
+}
+
+// ── 诊断：objc_copyImageNames ────────────────────────────────────
+static const char **(*orig_objc_copyImageNames)(unsigned int *);
+static const char **hook_objc_copyImageNames(unsigned int *outCount) {
+    const char **r = orig_objc_copyImageNames(outCount);
+    // 只在包含可疑 dylib 时记录
+    for (unsigned int i = 0; i < *outCount; i++) {
+        if (r[i] && shouldHideDylib(r[i]))
+            tlog(@"img_names_hit", @{@"name": @(r[i])});
+    }
+    return r;
+}
+
 static void hookEnvDetect(void) {
     MH("connect",  hook_connect,  &orig_connect);
+    MH("open",     hook_open,     &orig_open);
+    MH("objc_copyImageNames", hook_objc_copyImageNames, &orig_objc_copyImageNames);
     MH("access",   hook_access,   &orig_access);
     MH("fopen",    hook_fopen,    &orig_fopen);
     MH("stat",     hook_stat,     &orig_stat);
