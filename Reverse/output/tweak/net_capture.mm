@@ -25,14 +25,28 @@ static NSData *tryGunzip(const void *data, size_t len) {
     return out;
 }
 
-// 移除 slugger 请求的 fp 风控指纹 header
+static BOOL isRegisterQrt(NSString *url) {
+    static NSSet *kRegQrts;
+    static dispatch_once_t t;
+    dispatch_once(&t, ^{
+        kRegQrts = [NSSet setWithObjects:@"p_ucGetVcodeV2", @"p_ucVerifyVcodeV2",
+                    @"p_ucRegister", @"p_ucRegisterV2", @"p_ucRegisterV3", nil];
+    });
+    for (NSString *q in kRegQrts)
+        if ([url containsString:q]) return YES;
+    return NO;
+}
+
+// 移除 slugger 请求的 fp 风控指纹 header（注册接口除外）
 static NSURLRequest *stripFpFromSlugger(NSURLRequest *req) {
     if (!req) return req;
-    if (![req.URL.absoluteString containsString:@"slugger.qunar.com"]) return req;
+    NSString *u = req.URL.absoluteString;
+    if (![u containsString:@"slugger.qunar.com"]) return req;
+    if (isRegisterQrt(u)) return req;
     if (![req valueForHTTPHeaderField:@"fp"]) return req;
     NSMutableURLRequest *mr = [req mutableCopy];
     [mr setValue:@"" forHTTPHeaderField:@"fp"];
-    tlog(@"fp_stripped", @{@"u": req.URL.absoluteString ?: @""});
+    tlog(@"fp_stripped", @{@"u": u ?: @""});
     return [mr copy];
 }
 
