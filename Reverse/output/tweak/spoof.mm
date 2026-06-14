@@ -22,6 +22,10 @@ static BOOL isQunarKey(NSString *key) {
     if ([key containsString:@"qunar"] || [key containsString:@"iphoneclient"]) return YES;
     return NO;
 }
+static BOOL isGtsKey(NSString *key) {
+    if (!key) return NO;
+    return [key containsString:@"gxsdk"] || [key containsString:@"SDK_Service"];
+}
 
 static BOOL shouldBlockKey(NSString *key) {
     if (!key) return NO;
@@ -73,12 +77,23 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
         return errSecItemNotFound;
     }
     OSStatus r = orig_SecItemCopyMatching(q, result);
-    if (key && isQunarKey(key))
+    if (key && (isQunarKey(key) || isGtsKey(key)))
         tlog(@"kc_read", @{@"key": key, @"status": @(r)});
     return r;
 }
 
 static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
+
+static void logGtsValue(CFDictionaryRef attrs, NSString *key) {
+    CFTypeRef v = CFDictionaryGetValue(attrs, kSecValueData);
+    if (!v || CFGetTypeID(v) != CFDataGetTypeID()) return;
+    NSData *d = (__bridge NSData *)v;
+    NSUInteger len = MIN(d.length, 16);
+    NSMutableString *hex = [NSMutableString string];
+    for (NSUInteger i = 0; i < len; i++)
+        [hex appendFormat:@"%02x", ((const uint8_t *)d.bytes)[i]];
+    tlog(@"kc_gts_val", @{@"key": key, @"hex": hex, @"len": @(d.length)});
+}
 
 static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
 static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
@@ -92,6 +107,7 @@ static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     }
     if (r == errSecSuccess && key) {
         tlog(@"kc_written", @{@"key": key});
+        if (isGtsKey(key)) logGtsValue(attrs, key);
         if (isQunarKey(key)) {
             @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
             @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }

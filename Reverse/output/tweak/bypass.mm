@@ -90,6 +90,20 @@ static const char *hook_class_getImageName(Class cls) {
 }
 
 static int gDyldLogDone = 0;
+static int gImgNamesLogDone = 0;
+static const char **(*orig_objc_copyImageNames)(unsigned int *);
+static const char **hook_objc_copyImageNames_diag(unsigned int *outCount) {
+    const char **result = orig_objc_copyImageNames(outCount);
+    if (result && outCount && __sync_val_compare_and_swap(&gImgNamesLogDone, 0, 1) == 0) {
+        unsigned int count = *outCount;
+        tlog(@"img_names_first", @{@"n": @(count)});
+        for (unsigned int i = 0; i < count; i++) {
+            if (result[i] && shouldHideDylib(result[i]))
+                tlog(@"img_names_hidden", @{@"name": @(result[i])});
+        }
+    }
+    return result;
+}
 static const char *hook_dyld_name(uint32_t idx) {
     uint32_t total = orig_dyld_count();
     // 只在第一次枚举时记录哪些被过滤
@@ -250,9 +264,10 @@ static void hookAntiDebug(void) {
     MH("ptrace",  hook_ptrace,  &orig_ptrace);
     MH("sysctl",  hook_sysctl,  &orig_sysctl);
     MH("fork",    hook_fork,    &orig_fork);
-    MH("_dyld_image_count",    hook_dyld_count,          &orig_dyld_count);
-    MH("_dyld_get_image_name", hook_dyld_name,           &orig_dyld_name);
-    MH("class_getImageName",   hook_class_getImageName,  &orig_class_getImageName);
+    MH("_dyld_image_count",    hook_dyld_count,              &orig_dyld_count);
+    MH("_dyld_get_image_name", hook_dyld_name,               &orig_dyld_name);
+    MH("class_getImageName",   hook_class_getImageName,      &orig_class_getImageName);
+    MH("objc_copyImageNames",  hook_objc_copyImageNames_diag, &orig_objc_copyImageNames);
     MH("sysctlbyname", hook_sysctlbyname, &orig_sysctlbyname);
     MH("task_info", hook_task_info, &orig_task_info);
     MH("task_get_exception_ports", hook_task_exc_ports, &orig_task_exc_ports);
