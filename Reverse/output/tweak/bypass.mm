@@ -255,24 +255,22 @@ static void hookAntiDebug(void) {
 // ── 诊断：open() jail路径 ────────────────────────────────────────
 static int (*orig_open)(const char *, int, ...);
 static int hook_open(const char *p, int flags, ...) {
-    if (isJailPath(p)) tlog(@"open_jail", @{@"p": @(p)});
-    mode_t mode = 0;
-    if (flags & O_CREAT) {
-        va_list ap; va_start(ap, flags);
-        mode = (mode_t)va_arg(ap, int);
-        va_end(ap);
-    }
-    return orig_open(p, flags, mode);
+    if (p && isJailPath(p)) tlog(@"open_jail", @{@"p": @(p)});
+    if (flags & O_CREAT) return orig_open(p, flags, 0644);
+    return orig_open(p, flags);
 }
 
-// ── 诊断：objc_copyImageNames ────────────────────────────────────
+// ── 诊断：objc_copyImageNames（只扫一次）────────────────────────
+static int gImgScanned = 0;
 static const char **(*orig_objc_copyImageNames)(unsigned int *);
 static const char **hook_objc_copyImageNames(unsigned int *outCount) {
     const char **r = orig_objc_copyImageNames(outCount);
-    // 只在包含可疑 dylib 时记录
-    for (unsigned int i = 0; i < *outCount; i++) {
-        if (r[i] && shouldHideDylib(r[i]))
-            tlog(@"img_names_hit", @{@"name": @(r[i])});
+    if (!r || !outCount) return r;
+    if (__sync_val_compare_and_swap(&gImgScanned, 0, 1) == 0) {
+        for (unsigned int i = 0; i < *outCount; i++)
+            if (r[i] && shouldHideDylib(r[i]))
+                tlog(@"img_names_hit", @{@"name": @(r[i])});
+        tlog(@"img_names_done", @{@"total": @(*outCount)});
     }
     return r;
 }
