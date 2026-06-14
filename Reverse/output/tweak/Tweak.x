@@ -115,26 +115,14 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
-// ── GToast 调用栈诊断 ────────────────────────────────────────────
-%hook GToast
-- (void)showMessage:(NSString *)msg {
-    tlog(@"gtoast_stack", @{@"msg": msg ?: @"", @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
-    %orig;
-}
-- (void)showMessage:(NSString *)msg duration:(double)d {
-    tlog(@"gtoast_stack", @{@"msg": msg ?: @"", @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
-    %orig;
-}
-- (void)showMessage:(NSString *)msg duration:(double)d onView:(id)v {
-    tlog(@"gtoast_stack", @{@"msg": msg ?: @"", @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
-    %orig;
-}
-%end
-
 // ── 按钮点击诊断 ─────────────────────────────────────────────────
 %hook QSMSCodeLoginVC
 - (void)getSmsCodeClick {
     tlog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"m":@"getSmsCodeClick"});
+    %orig;
+}
+- (void)fetchSmsCode:(id)param {
+    tlog(@"fetch_sms", @{@"param": [param description] ?: @"nil"});
     %orig;
 }
 %end
@@ -143,6 +131,29 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 - (void)getVerifyCodeBtnClick {
     tlog(@"btn_click", @{@"c":@"QComVerifyLoginView",@"m":@"getVerifyCodeBtnClick"});
     %orig;
+}
+%end
+
+// ── UILabel setText 捕获"频繁/安全"弹窗 ────────────────────────
+%hook UILabel
+- (void)setText:(NSString *)text {
+    if (text && ([text containsString:@"频繁"] || [text containsString:@"安全"] || [text containsString:@"异常"])) {
+        tlog(@"label_freq", @{@"t": text, @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+    }
+    %orig;
+}
+%end
+
+// ── UIAlertController 捕获系统弹窗 ──────────────────────────────
+%hook UIAlertController
+- (void)viewDidLoad {
+    %orig;
+    NSString *t = self.title ?: @"";
+    NSString *m = self.message ?: @"";
+    if ([t containsString:@"频繁"] || [m containsString:@"频繁"] ||
+        [t containsString:@"安全"] || [m containsString:@"安全"]) {
+        tlog(@"alert_freq", @{@"t": t, @"m": m, @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+    }
 }
 %end
 
