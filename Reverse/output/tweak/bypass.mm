@@ -89,8 +89,18 @@ static const char *hook_class_getImageName(Class cls) {
     return n ?: "";
 }
 
+static int gDyldLogDone = 0;
 static const char *hook_dyld_name(uint32_t idx) {
     uint32_t total = orig_dyld_count();
+    // 只在第一次枚举时记录哪些被过滤
+    if (idx == 0 && __sync_val_compare_and_swap(&gDyldLogDone, 0, 1) == 0) {
+        for (uint32_t i = 0; i < total; i++) {
+            const char *n = orig_dyld_name(i);
+            if (shouldHideDylib(n))
+                tlog(@"dyld_hidden", @{@"name": @(n ?: "")});
+        }
+        tlog(@"dyld_enum", @{@"total": @(total)});
+    }
     uint32_t visible = 0;
     for (uint32_t i = 0; i < total; i++) {
         const char *name = orig_dyld_name(i);
@@ -252,33 +262,9 @@ static void hookAntiDebug(void) {
     MH("kill",  hook_kill,  &orig_kill);
 }
 
-// ── 诊断：open() jail路径 ────────────────────────────────────────
-static int (*orig_open)(const char *, int, ...);
-static int hook_open(const char *p, int flags, ...) {
-    if (p && isJailPath(p)) tlog(@"open_jail", @{@"p": @(p)});
-    if (flags & O_CREAT) return orig_open(p, flags, 0644);
-    return orig_open(p, flags);
-}
-
-// ── 诊断：objc_copyImageNames（只扫一次）────────────────────────
-static int gImgScanned = 0;
-static const char **(*orig_objc_copyImageNames)(unsigned int *);
-static const char **hook_objc_copyImageNames(unsigned int *outCount) {
-    const char **r = orig_objc_copyImageNames(outCount);
-    if (!r || !outCount) return r;
-    if (__sync_val_compare_and_swap(&gImgScanned, 0, 1) == 0) {
-        for (unsigned int i = 0; i < *outCount; i++)
-            if (r[i] && shouldHideDylib(r[i]))
-                tlog(@"img_names_hit", @{@"name": @(r[i])});
-        tlog(@"img_names_done", @{@"total": @(*outCount)});
-    }
-    return r;
-}
 
 static void hookEnvDetect(void) {
     MH("connect",  hook_connect,  &orig_connect);
-    MH("open",     hook_open,     &orig_open);
-    MH("objc_copyImageNames", hook_objc_copyImageNames, &orig_objc_copyImageNames);
     MH("access",   hook_access,   &orig_access);
     MH("fopen",    hook_fopen,    &orig_fopen);
     MH("stat",     hook_stat,     &orig_stat);
