@@ -115,6 +115,37 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
+// ── GToast 调用栈诊断 ────────────────────────────────────────────
+%hook GToast
+- (void)showMessage:(NSString *)msg {
+    tlog(@"gtoast_stack", @{@"msg": msg ?: @"", @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+    %orig;
+}
+- (void)showMessage:(NSString *)msg duration:(double)d {
+    tlog(@"gtoast_stack", @{@"msg": msg ?: @"", @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+    %orig;
+}
+- (void)showMessage:(NSString *)msg duration:(double)d onView:(id)v {
+    tlog(@"gtoast_stack", @{@"msg": msg ?: @"", @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+    %orig;
+}
+%end
+
+// ── 按钮点击诊断 ─────────────────────────────────────────────────
+%hook QSMSCodeLoginVC
+- (void)getSmsCodeClick {
+    tlog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"m":@"getSmsCodeClick"});
+    %orig;
+}
+%end
+
+%hook QComVerifyLoginView
+- (void)getVerifyCodeBtnClick {
+    tlog(@"btn_click", @{@"c":@"QComVerifyLoginView",@"m":@"getVerifyCodeBtnClick"});
+    %orig;
+}
+%end
+
 // ── AdSupport hook ───────────────────────────────────────────────
 %group GAdSupport
 %hook ASIdentifierManager
