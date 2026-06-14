@@ -65,8 +65,12 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
-// ── WKWebView delegate hook ──────────────────────────────────────
+// ── WKWebView 初始化 hook — 注入指纹伪造脚本 ────────────────────
 %hook WKWebView
+- (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)config {
+    injectCaptureScript(config);
+    return %orig;
+}
 - (void)setNavigationDelegate:(id<WKNavigationDelegate>)delegate {
     if (!delegate) { %orig(nil); return; }
     QunarWKNavSpy *spy = [QunarWKNavSpy new];

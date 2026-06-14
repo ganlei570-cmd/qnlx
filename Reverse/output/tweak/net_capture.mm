@@ -195,23 +195,71 @@ static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
     return orig_dataTaskReqDel(self, cmd, req);
 }
 
-// ── WKWebView JS 注入辅助（供 Tweak.x 调用）─────────────────────
+// ── WKWebView JS 注入：浏览器指纹伪造 + 请求日志 ────────────────
 void injectCaptureScript(WKWebViewConfiguration *configuration) {
     if (!configuration) return;
-    NSString *js = @"(function(){"
-        "var _x=XMLHttpRequest.prototype.open,_f=window.fetch;"
-        "function _tl(e,u){var r=new XMLHttpRequest();"
-        "_x.call(r,'POST','http://49.234.20.227:8888/log',true);"
-        "r.setRequestHeader('Content-Type','application/json');"
-        "r.send(JSON.stringify({event:e,url:String(u),src:'wk_js'}));}"
-        "XMLHttpRequest.prototype.open=function(m,u){"
-        "if(u&&String(u).indexOf('49.234.20.227')===-1)_tl('wk_xhr',u);"
-        "return _x.apply(this,arguments);};"
-        "if(_f)window.fetch=function(i,o){"
-        "var u=typeof i==='string'?i:(i&&i.url?i.url:'');"
-        "if(u&&String(u).indexOf('49.234.20.227')===-1)_tl('wk_fetch',u);"
-        "return _f.apply(this,arguments);};"
-        "})();";
+    // 从 hardware_uuid 派生种子，换 profile 就换指纹
+    NSString *uuid = gHardwareUUID ?: @"DEADBEEF-0000-0000-0000-000000000000";
+    NSString *hex = [[[uuid stringByReplacingOccurrencesOfString:@"-" withString:@""]
+                      substringToIndex:8] uppercaseString];
+    unsigned int seed = 0;
+    [[NSScanner scannerWithString:hex] scanHexInt:&seed];
+    if (seed == 0) seed = 0xDEADC0DE;
+    tlog(@"wk_inject", @{@"seed": [NSString stringWithFormat:@"%08X", seed]});
+    NSString *js = [NSString stringWithFormat:
+        @"(function(){"
+        "if(window.__qnSpoof)return;window.__qnSpoof=true;"
+        "var sd=%u>>>0;"
+        "function nr(){sd=((sd*1664525>>>0)+1013904223)>>>0;return(sd>>>1)&3;}"
+        // ── Canvas 2D 指纹 ──
+        "var _gi=CanvasRenderingContext2D.prototype.getImageData;"
+        "CanvasRenderingContext2D.prototype.getImageData=function(){"
+        "var d=_gi.apply(this,arguments);d.data[0]^=nr();d.data[1]^=nr();return d;};"
+        "var _td=HTMLCanvasElement.prototype.toDataURL;"
+        "HTMLCanvasElement.prototype.toDataURL=function(){"
+        "try{var c=HTMLCanvasElement.prototype.getContext.call(this,'2d');"
+        "if(c){var p=_gi.call(c,0,0,1,1);p.data[0]^=nr();p.data[1]^=nr();c.putImageData(p,0,0);}"
+        "}catch(e){}return _td.apply(this,arguments);};"
+        "if(HTMLCanvasElement.prototype.toBlob){"
+        "var _tb=HTMLCanvasElement.prototype.toBlob;"
+        "HTMLCanvasElement.prototype.toBlob=function(cb,t,q){"
+        "var self=this;"
+        "try{var c=HTMLCanvasElement.prototype.getContext.call(this,'2d');"
+        "if(c){var p=_gi.call(c,0,0,1,1);p.data[0]^=nr();p.data[1]^=nr();c.putImageData(p,0,0);}}"
+        "catch(e){}return _tb.call(self,cb,t,q);};}"
+        // ── WebGL 1 + 2 指纹 ──
+        "var fr='Apple A'+((sd%%3)+16)+' GPU';"
+        "function _swgl(gl){if(!gl)return gl;"
+        "var _p=gl.getParameter.bind(gl);"
+        "gl.getParameter=function(p){"
+        "if(p===0x1F01||p===0x9246)return fr;"
+        "if(p===0x1F00||p===0x9245)return 'Apple Inc.';"
+        "return _p(p);};"
+        "var _rp=gl.readPixels.bind(gl);"
+        "gl.readPixels=function(x,y,w,h,fmt,type,pixels){"
+        "_rp(x,y,w,h,fmt,type,pixels);"
+        "if(pixels&&pixels.length>0){pixels[0]^=nr();if(pixels.length>1)pixels[1]^=nr();}};"
+        "return gl;}"
+        "var _gc=HTMLCanvasElement.prototype.getContext;"
+        "HTMLCanvasElement.prototype.getContext=function(t){"
+        "var c=_gc.apply(this,arguments);"
+        "if(c&&(t==='webgl'||t==='webgl2'||t==='experimental-webgl'))_swgl(c);"
+        "return c;};"
+        // ── Audio 指纹 ──
+        "var AC=window.AudioContext||window.webkitAudioContext;"
+        "if(AC){var _ca=AC.prototype.createAnalyser;"
+        "AC.prototype.createAnalyser=function(){"
+        "var a=_ca.apply(this,arguments);"
+        "var _gf=a.getFloatFrequencyData.bind(a);"
+        "a.getFloatFrequencyData=function(arr){"
+        "_gf(arr);if(arr&&arr.length>0)arr[0]+=(nr()-1.5)*0.0001;};"
+        "return a;};}"
+        // ── Navigator 辅助维度 ──
+        "try{Object.defineProperty(navigator,'hardwareConcurrency',{get:function(){return 6;}});}catch(e){}"
+        "try{Object.defineProperty(navigator,'deviceMemory',{get:function(){return 4;}});}catch(e){}"
+        "})()",
+        seed];
+
     WKUserScript *s = [[WKUserScript alloc]
         initWithSource:js
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart
