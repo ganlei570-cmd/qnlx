@@ -11,6 +11,7 @@
 #import <mach/mach.h>
 #include <signal.h>
 #include <unistd.h>
+#include <dirent.h>
 #import <substrate.h>
 #import <objc/runtime.h>
 #import "bypass.h"
@@ -128,6 +129,18 @@ static const char *hook_dyld_name(uint32_t idx) {
     return r ?: "";
 }
 
+static DIR *(*orig_opendir)(const char *);
+static DIR *hook_opendir(const char *p) {
+    if (isJailPath(p)) { errno = ENOENT; return NULL; }
+    return orig_opendir(p);
+}
+
+static int (*orig_readlink)(const char *, char *, size_t);
+static int hook_readlink(const char *p, char *b, size_t s) {
+    if (isJailPath(p)) { errno = ENOENT; return -1; }
+    return orig_readlink(p, b, s);
+}
+
 static int (*orig_connect)(int, const struct sockaddr *, socklen_t);
 static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
     if (sa && sa->sa_family == AF_INET) {
@@ -243,8 +256,10 @@ static CFTypeRef hook_IORegCreateCFProp(mach_port_t entry, CFStringRef key, CFAl
 
 static kern_return_t (*orig_task_info)(task_name_t, task_flavor_t, task_info_t, mach_msg_type_number_t *);
 static kern_return_t hook_task_info(task_name_t t, task_flavor_t f, task_info_t info, mach_msg_type_number_t *cnt) {
-    orig_task_info(t, f, info, cnt);
-    return KERN_SUCCESS;
+    kern_return_t r = orig_task_info(t, f, info, cnt);
+    if (r == KERN_SUCCESS && f == 11 /* TASK_DYLD_INFO */ && info && cnt && *cnt >= 5)
+        memset(info, 0, 5 * sizeof(integer_t));
+    return r;
 }
 
 static kern_return_t (*orig_task_exc_ports)(task_t, exception_mask_t, exception_mask_array_t, mach_msg_type_number_t *, exception_handler_array_t, exception_behavior_array_t, exception_flavor_array_t);
@@ -301,8 +316,10 @@ static void hookAntiDebug(void) {
 
 
 static void hookEnvDetect(void) {
-    MH("connect",  hook_connect,  &orig_connect);
-    MH("access",   hook_access,   &orig_access);
+    MH("connect",   hook_connect,   &orig_connect);
+    MH("opendir",   hook_opendir,   &orig_opendir);
+    MH("readlink",  hook_readlink,  &orig_readlink);
+    MH("access",    hook_access,    &orig_access);
     MH("fopen",    hook_fopen,    &orig_fopen);
     MH("stat",     hook_stat,     &orig_stat);
     MH("stat64",   hook_stat64,   &orig_stat64);
