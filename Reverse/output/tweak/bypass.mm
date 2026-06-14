@@ -90,6 +90,7 @@ static const char *hook_class_getImageName(Class cls) {
 }
 
 static CFAbsoluteTime gStartTime = 0;
+static int32_t gInTlog = 0;
 static int gDyldLogDone = 0;
 static int gImgNamesLogDone = 0;
 static const char **(*orig_objc_copyImageNames)(unsigned int *);
@@ -145,8 +146,12 @@ static int (*orig_access)(const char *, int);
 static int hook_access(const char *p, int m) {
     if (isJailPath(p)) return -1;
     int r = orig_access(p, m);
-    if (r == 0 && p && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 2.0)
-        tlog(@"access_ok", @{@"p": @(p)});
+    if (r == 0 && p && !gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 2.0) {
+        if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+            tlog(@"access_ok", @{@"p": @(p)});
+            gInTlog = 0;
+        }
+    }
     return r;
 }
 
@@ -157,8 +162,12 @@ static int (*orig_stat)(const char *, struct stat *);
 static int hook_stat(const char *p, struct stat *s) {
     if (isJailPath(p)) return -1;
     int r = orig_stat(p, s);
-    if (r == 0 && p && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 2.0)
-        tlog(@"stat_ok", @{@"p": @(p)});
+    if (r == 0 && p && !gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 2.0) {
+        if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+            tlog(@"stat_ok", @{@"p": @(p)});
+            gInTlog = 0;
+        }
+    }
     return r;
 }
 
