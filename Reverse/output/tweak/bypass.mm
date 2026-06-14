@@ -22,7 +22,9 @@ static const char * const kJailPaths[] = {
     "/etc/apt", "/private/var/lib/apt", "/private/var/stash",
     "/usr/lib/TweakInject", "/usr/lib/ellekit", "/usr/lib/substrate",
     "/private/preboot", "systemhook", "ElleKit", "frida", "FridaGadget",
-    "cynject", "substitute", NULL
+    "cynject", "substitute",
+    "/bin/bash", "/bin/sh", "/var/lib/cydia", "/var/cache/apt",
+    NULL
 };
 static const char * const kInjKw[] = {
     "frida", "cynject", NULL
@@ -31,7 +33,7 @@ static const char * const kInjKw[] = {
 static const char * const kHideDylibs[] = {
     "QunarNewDevice", "ElleKit", "ellekit", "TweakInject", "tweakinject",
     "systemhook", "cynject", "frida", "substrate", "MobileSubstrate",
-    "cycript", NULL
+    "cycript", "dopamine", "procursus", ".fakelib", NULL
 };
 
 static BOOL isJailPath(const char *p) {
@@ -114,6 +116,18 @@ static FILE *hook_fopen(const char *p, const char *m) { return isJailPath(p) ? N
 
 static int (*orig_stat)(const char *, struct stat *);
 static int hook_stat(const char *p, struct stat *s) { return isJailPath(p) ? -1 : orig_stat(p, s); }
+
+static int (*orig_stat64)(const char *, void *);
+static int hook_stat64(const char *p, void *s) { return isJailPath(p) ? -1 : orig_stat64(p, s); }
+
+static int (*orig_lstat)(const char *, struct stat *);
+static int hook_lstat(const char *p, struct stat *s) { return isJailPath(p) ? -1 : orig_lstat(p, s); }
+
+static int (*orig_lstat64)(const char *, void *);
+static int hook_lstat64(const char *p, void *s) { return isJailPath(p) ? -1 : orig_lstat64(p, s); }
+
+static pid_t (*orig_fork)(void);
+static pid_t hook_fork(void) { return -1; }
 
 static char *(*orig_getenv)(const char *);
 static char *hook_getenv(const char *k) {
@@ -217,6 +231,7 @@ static BOOL hook_fileExistsIsDir(id self, SEL cmd, NSString *path, BOOL *isDir) 
 static void hookAntiDebug(void) {
     MH("ptrace",  hook_ptrace,  &orig_ptrace);
     MH("sysctl",  hook_sysctl,  &orig_sysctl);
+    MH("fork",    hook_fork,    &orig_fork);
     MH("_dyld_image_count",    hook_dyld_count,          &orig_dyld_count);
     MH("_dyld_get_image_name", hook_dyld_name,           &orig_dyld_name);
     MH("class_getImageName",   hook_class_getImageName,  &orig_class_getImageName);
@@ -230,15 +245,17 @@ static void hookAntiDebug(void) {
 }
 
 static void hookEnvDetect(void) {
-    MH("connect", hook_connect, &orig_connect);
-    MH("access",  hook_access,  &orig_access);
-    MH("fopen",   hook_fopen,   &orig_fopen);
-    void *sfn = dlsym(RTLD_DEFAULT, "stat64") ?: dlsym(RTLD_DEFAULT, "stat");
-    if (sfn) MSHookFunction(sfn, (void *)hook_stat, (void **)&orig_stat);
-    MH("getenv",  hook_getenv,  &orig_getenv);
-    MH("popen",   hook_popen,   &orig_popen);
-    MH("system",  hook_system,  &orig_system);
-    MH("dlopen",  hook_dlopen,  &orig_dlopen);
+    MH("connect",  hook_connect,  &orig_connect);
+    MH("access",   hook_access,   &orig_access);
+    MH("fopen",    hook_fopen,    &orig_fopen);
+    MH("stat",     hook_stat,     &orig_stat);
+    MH("stat64",   hook_stat64,   &orig_stat64);
+    MH("lstat",    hook_lstat,    &orig_lstat);
+    MH("lstat64",  hook_lstat64,  &orig_lstat64);
+    MH("getenv",   hook_getenv,   &orig_getenv);
+    MH("popen",    hook_popen,    &orig_popen);
+    MH("system",   hook_system,   &orig_system);
+    MH("dlopen",   hook_dlopen,   &orig_dlopen);
 }
 
 // SSL pinning bypass — allows mitmproxy MITM
