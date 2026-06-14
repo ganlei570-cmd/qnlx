@@ -162,7 +162,8 @@ static NSString *gCachedPhone = nil;
 %hook UILabel
 - (void)setText:(NSString *)text {
     if (text && ([text containsString:@"频繁"] || [text containsString:@"安全"] || [text containsString:@"异常"])) {
-        tlog(@"label_freq", @{@"t": text, @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+        tlog(@"label_freq_blocked", @{@"t": text});
+        return;
     }
     %orig;
 }

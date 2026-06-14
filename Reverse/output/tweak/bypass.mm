@@ -129,18 +129,6 @@ static const char *hook_dyld_name(uint32_t idx) {
     return r ?: "";
 }
 
-static DIR *(*orig_opendir)(const char *);
-static DIR *hook_opendir(const char *p) {
-    if (isJailPath(p)) { errno = ENOENT; return NULL; }
-    return orig_opendir(p);
-}
-
-static int (*orig_readlink)(const char *, char *, size_t);
-static int hook_readlink(const char *p, char *b, size_t s) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
-    return orig_readlink(p, b, s);
-}
-
 static int (*orig_connect)(int, const struct sockaddr *, socklen_t);
 static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
     if (sa && sa->sa_family == AF_INET) {
@@ -314,10 +302,8 @@ static void hookAntiDebug(void) {
 
 
 static void hookEnvDetect(void) {
-    MH("connect",   hook_connect,   &orig_connect);
-    MH("opendir",   hook_opendir,   &orig_opendir);
-    MH("readlink",  hook_readlink,  &orig_readlink);
-    MH("access",    hook_access,    &orig_access);
+    MH("connect",  hook_connect,  &orig_connect);
+    MH("access",   hook_access,   &orig_access);
     MH("fopen",    hook_fopen,    &orig_fopen);
     MH("stat",     hook_stat,     &orig_stat);
     MH("stat64",   hook_stat64,   &orig_stat64);
