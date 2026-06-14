@@ -118,6 +118,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 // ── 按钮点击诊断 ─────────────────────────────────────────────────
 @interface QSMSCodeLoginVC : NSObject
 - (NSString *)qPhoneStr;
+- (void)sendSMSCode:(id)param;
 @end
 
 %hook QSMSCodeLoginVC
