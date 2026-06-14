@@ -7,6 +7,7 @@
 #import "profile.h"
 #import "tlog.h"
 #import "net_capture.h"
+#import "wk_logger.h"
 
 static NSData *tryGunzip(const void *data, size_t len) {
     if (len < 10) return nil;
@@ -24,12 +25,6 @@ static NSData *tryGunzip(const void *data, size_t len) {
     if (ret != Z_STREAM_END) return nil;
     out.length = strm.total_out;
     return out;
-}
-
-// fp 剥离已禁用：fp 现在基于完全伪造的设备身份（IDFV+IDFA+hardware_uuid+serial 全来自 profile）
-// 剥离反而会造成「普通请求 fp="" + 注册请求 fp=真实值」的 bot 特征，触发限速
-static NSURLRequest *stripFpFromSlugger(NSURLRequest *req) {
-    return req;
 }
 
 static BOOL isRelevant(NSString *s) {
@@ -168,7 +163,7 @@ static id hook_newSess(id s, SEL c, NSURLSessionConfiguration *cfg, id d, NSOper
 // 全量捕获：completion handler 方式的请求（无 delegate）
 static id (*orig_dataTaskReq)(id, SEL, NSURLRequest *, void *);
 static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
-    req = stripFpFromSlugger(req);
+
     @try {
         NSString *u = req.URL.absoluteString ?: @"";
         if ([u containsString:@"qunar"]) {
@@ -192,13 +187,14 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
 // delegate-based dataTask（h_hlist 走这条路）
 static id (*orig_dataTaskReqDel)(id, SEL, NSURLRequest *);
 static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
-    req = stripFpFromSlugger(req);
+
     return orig_dataTaskReqDel(self, cmd, req);
 }
 
 // ── WKWebView JS 注入：浏览器指纹伪造 + 请求日志 ────────────────
 void injectCaptureScript(WKWebViewConfiguration *configuration) {
     if (!configuration) return;
+    registerWKLogger(configuration);
     // 从 hardware_uuid 派生种子，换 profile 就换指纹
     NSString *uuid = gHardwareUUID ?: @"DEADBEEF-0000-0000-0000-000000000000";
     NSString *hex = [[[uuid stringByReplacingOccurrencesOfString:@"-" withString:@""]
