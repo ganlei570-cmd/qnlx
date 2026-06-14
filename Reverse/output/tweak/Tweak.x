@@ -155,10 +155,10 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 + (BOOL)isJailBreak { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"CTDevice",@"s":@"isJailBreak",@"r":@(r)}); return r; }
 %end
 %hook GTCDeviceUtils
-+ (BOOL)isJailbreak { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"GTCDeviceUtils",@"s":@"isJailbreak",@"r":@(r)}); return r; }
+- (BOOL)isJailbreak { tlog(@"gts_bypass", @{@"c":@"GTCDeviceUtils",@"m":@"isJailbreak->NO"}); return NO; }
 %end
 %hook GTSDeviceUtils
-+ (BOOL)isJailbreak { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"GTSDeviceUtils",@"s":@"isJailbreak",@"r":@(r)}); return r; }
+- (BOOL)isJailbreak { tlog(@"gts_bypass", @{@"c":@"GTSDeviceUtils",@"m":@"isJailbreak->NO"}); return NO; }
 %end
 %hook BMapDeviceInfo
 + (BOOL)isJailBreak { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"BMapDeviceInfo",@"s":@"isJailBreak",@"r":@(r)}); return r; }
@@ -176,8 +176,8 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 + (BOOL)isJailbreak { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"QTPUtils",@"s":@"isJailbreak",@"r":@(r)}); return r; }
 %end
 %hook HKEDeviceInfo
-+ (BOOL)isJailbroken  { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"HKEDeviceInfo",@"s":@"isJailbroken",@"r":@(r)}); return r; }
-- (BOOL)checkJailbroken { BOOL r = %orig; tlog(@"jb_probe", @{@"c":@"HKEDeviceInfo",@"s":@"checkJailbroken",@"r":@(r)}); return r; }
+- (BOOL)isJailbroken   { tlog(@"gts_bypass", @{@"c":@"HKEDeviceInfo",@"m":@"isJailbroken->NO"});   return NO; }
+- (BOOL)checkJailbroken { tlog(@"gts_bypass", @{@"c":@"HKEDeviceInfo",@"m":@"checkJailbroken->NO"}); return NO; }
 %end
 %end
 
