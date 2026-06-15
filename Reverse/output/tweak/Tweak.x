@@ -6,6 +6,7 @@
 #import <Foundation/Foundation.h>
 #import <WebKit/WebKit.h>
 #import <objc/message.h>
+#import <objc/runtime.h>
 #import <dlfcn.h>
 #import "profile.h"
 #import "bypass.h"
@@ -13,7 +14,6 @@
 #import "clean.h"
 #import "tlog.h"
 #import "net_capture.h"
-#import "dump.h"
 
 // ── WKWebView SSL bypass ─────────────────────────────────────────
 static const char kWKNavSpyKey = 0;
@@ -346,10 +346,25 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             %init(GCoreTelephony);
             %init(GJailbreakProbe);
             %init(GRiskControl);
-            tlog(@"dump_queued", nil);
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC),
                 dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    @autoreleasepool { dumpMainBinary(); }
+                    @autoreleasepool {
+                        SEL target = @selector(sendSMSCode:);
+                        unsigned int count = 0;
+                        Class *classes = objc_copyClassList(&count);
+                        for (unsigned int i = 0; i < count; i++) {
+                            unsigned int mc = 0;
+                            Method *methods = class_copyMethodList(classes[i], &mc);
+                            for (unsigned int j = 0; j < mc; j++) {
+                                if (sel_isEqual(method_getName(methods[j]), target)) {
+                                    tlog(@"sms_owner", @{@"cls": NSStringFromClass(classes[i])});
+                                }
+                            }
+                            free(methods);
+                        }
+                        free(classes);
+                        tlog(@"sms_scan_done", nil);
+                    }
                 });
         }
     }
