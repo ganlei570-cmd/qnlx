@@ -70,7 +70,9 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 // ── WKWebView 初始化 hook — 注入指纹伪造脚本 ────────────────────
 %hook WKWebView
 - (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)config {
+    tlog(@"wk_init_enter", nil);
     injectCaptureScript(config);
+    tlog(@"wk_init_done", nil);
     return %orig;
 }
 - (void)setNavigationDelegate:(id<WKNavigationDelegate>)delegate {
@@ -334,12 +336,17 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             installSpoofHooks();
             initCleanHooks();
             %init;
+            tlog(@"init_main_done", nil);
             dlopen("/System/Library/Frameworks/AdSupport.framework/AdSupport", RTLD_NOW);
             %init(GAdSupport);
+            tlog(@"init_adsupport_done", nil);
             dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_NOW);
             %init(GCoreTelephony);
+            tlog(@"init_telephony_done", nil);
             %init(GJailbreakProbe);
+            tlog(@"init_jbprobe_done", nil);
             %init(GRiskControl);
+            tlog(@"init_riskctl_done", nil);
         }
     }
 }
