@@ -341,20 +341,6 @@ static unsigned char *hook_CC_SHA256(const void *data, CC_LONG len, unsigned cha
     return r;
 }
 
-typedef int (*sandbox_check_fn)(pid_t, const char *, int, ...);
-static sandbox_check_fn orig_sandbox_check = NULL;
-static int hook_sandbox_check(pid_t pid, const char *op, int type, ...) {
-    va_list args; va_start(args, type);
-    const char *path = va_arg(args, const char *); va_end(args);
-    int r = orig_sandbox_check(pid, op, type, path);
-    if (gStartTime > 0 && (CFAbsoluteTimeGetCurrent()-gStartTime) < 5.0) {
-        if (!gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-            tlog(@"sb_chk", @{@"op": op?@(op):@"?", @"p": path?@(path):@"?", @"r": @(r)});
-            gInTlog = 0;
-        }
-    }
-    return r;
-}
 
 static int (*orig_kill)(pid_t, int);
 static int hook_kill(pid_t pid, int sig) {
@@ -435,8 +421,6 @@ void installBypassHooks(void) {
     hookEnvDetect();
     MH("CC_MD5",    hook_CC_MD5,    &orig_CC_MD5);
     MH("CC_SHA256", hook_CC_SHA256, &orig_CC_SHA256);
-    orig_sandbox_check = (sandbox_check_fn)dlsym(RTLD_DEFAULT, "sandbox_check");
-    if (orig_sandbox_check) MSHookFunction((void*)orig_sandbox_check, (void*)hook_sandbox_check, (void**)&orig_sandbox_check);
     dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW);
     MH("IORegistryEntryCreateCFProperty", hook_IORegCreateCFProp, &orig_IORegCreateCFProp);
     MH("SecTrustEvaluate", hook_SecTrustEvaluate, &orig_SecTrustEvaluate);
