@@ -312,9 +312,27 @@ static void tryRespSuccess(id response, NSDictionary *data) {
     tlog(@"sms_hook", @{@"model_nil": @(model == nil)});
     if (!model) {
         model = [NSClassFromString(@"RiskAndPwdInfoModel") new];
-        tlog(@"sms_hook", @{@"action": @"injected_empty_model"});
     }
     %orig(model);
+}
+%end
+
+%hook RiskAndPwdInfoModel
+- (id)riskVerifyToken {
+    id v = %orig;
+    return v ?: @"bypass_token";
+}
+- (NSString *)verifyCodeType {
+    NSString *v = %orig;
+    return v ?: @"1";
+}
+- (id)verifyRequestId {
+    id v = %orig;
+    return v ?: @"bypass_rid";
+}
+- (id)pwdToken {
+    id v = %orig;
+    return v ?: @"bypass_pwd";
 }
 %end
 
