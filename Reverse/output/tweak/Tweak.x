@@ -126,6 +126,9 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 - (void)setQPhoneStr:(NSString *)phone;
 @end
 
+@interface QnrSendVCodeParam : NSObject
+@end
+
 @interface HYRiskyRequestVC : UIViewController
 @end
 
@@ -162,17 +165,26 @@ static NSString *gCachedPhone = nil;
 - (void)sendSMSCode:(id)param {
     tlog(@"send_sms", @{@"param": [param description] ?: @"nil"});
     if (!param && gCachedPhone.length) {
-        id fakeModel = [[NSClassFromString(@"RiskAndPwdInfoModel") alloc] init];
-        if (fakeModel) {
-            tlog(@"send_fake_model", @{@"phone": gCachedPhone});
-            %orig(fakeModel);
-        } else {
-            tlog(@"send_bypass_voice", @{@"phone": gCachedPhone});
-            %orig(gCachedPhone);
-        }
+        tlog(@"send_voice_as_sms", @{@"phone": gCachedPhone});
+        %orig(gCachedPhone);
         return;
     }
     %orig;
+}
+%end
+
+%hook QnrSendVCodeParam
+- (void)setVcodeType:(id)type {
+    tlog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"cls": NSStringFromClass([type class]) ?: @"nil"});
+    id sms = type;
+    if ([type isKindOfClass:[NSString class]]) {
+        if ([@[@"voice",@"VOICE",@"voice_call",@"2",@"3"] containsObject:type]) sms = @"1";
+    } else if ([type isKindOfClass:[NSNumber class]]) {
+        NSInteger n = [(NSNumber *)type integerValue];
+        if (n == 2 || n == 3) sms = @(1);
+    }
+    if (sms != type) tlog(@"vcode_sms", @{@"was": [type description], @"now": [sms description]});
+    %orig(sms);
 }
 %end
 
