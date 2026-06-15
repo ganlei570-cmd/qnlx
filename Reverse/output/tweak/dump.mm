@@ -8,10 +8,10 @@
 #import "tlog.h"
 #import "dump.h"
 
-static bool vmread(mach_vm_address_t src, void *dst, size_t size) {
-    mach_vm_size_t got = size;
-    kern_return_t kr = mach_vm_read_overwrite(mach_task_self(), src, size,
-                                               (mach_vm_address_t)dst, &got);
+static bool vmread(vm_address_t src, void *dst, vm_size_t size) {
+    vm_size_t got = size;
+    kern_return_t kr = vm_read_overwrite(mach_task_self(), src, size,
+                                          (vm_address_t)dst, &got);
     return kr == KERN_SUCCESS && got == size;
 }
 
@@ -82,9 +82,9 @@ void dumpMainBinary(void) {
             if (lc->cmd == LC_SEGMENT_64) {
                 struct segment_command_64 *seg = (struct segment_command_64 *)lc;
                 if (seg->filesize > 0) {
-                    mach_vm_address_t src = (mach_vm_address_t)seg->vmaddr + (mach_vm_address_t)slide;
-                    if (!vmread(src, buf + seg->fileoff, (size_t)seg->filesize)) {
-                        tlog(@"dump_vmread_fail", @{@"seg": @(seg->segname), @"src": [NSString stringWithFormat:@"0x%llx", (unsigned long long)src]});
+                    vm_address_t src = (vm_address_t)seg->vmaddr + (vm_address_t)slide;
+                    if (!vmread(src, buf + seg->fileoff, (vm_size_t)seg->filesize)) {
+                        tlog(@"dump_vmread_fail", @{@"seg": @(seg->segname), @"src": [NSString stringWithFormat:@"0x%lx", (unsigned long)src]});
                     }
                 }
             }
