@@ -207,15 +207,6 @@ static int hook_fstat(int fd, struct stat *s) {
     return orig_fstat(fd, s);
 }
 
-static int (*orig_open)(const char *, int, int);
-static int hook_open(const char *p, int flags, int mode) {
-    if (p && isJailPath(p) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-        tlog(@"open_jb", @{@"p": @(p)});
-        gInTlog = 0;
-    }
-    return orig_open(p, flags, mode);
-}
-
 static int (*orig_sandbox_check)(pid_t, const char *, int, const char *);
 static int hook_sandbox_check(pid_t pid, const char *op, int type, const char *path) {
     if (type == 1 && path && isJailPath(path) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
