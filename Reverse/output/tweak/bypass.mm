@@ -207,6 +207,18 @@ static int hook_fstat(int fd, struct stat *s) {
     return orig_fstat(fd, s);
 }
 
+static int (*orig_open)(const char *, int, int);
+static int hook_open(const char *p, int flags, int mode) {
+    if (isJailPath(p)) { errno = ENOENT; return -1; }
+    return orig_open(p, flags, mode);
+}
+
+static int (*orig_openat)(int, const char *, int, int);
+static int hook_openat(int dirfd, const char *p, int flags, int mode) {
+    if (isJailPath(p)) { errno = ENOENT; return -1; }
+    return orig_openat(dirfd, p, flags, mode);
+}
+
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
 
@@ -396,6 +408,8 @@ static void hookEnvDetect(void) {
     MH("lstat",    hook_lstat,    &orig_lstat);
     MH("lstat64",  hook_lstat64,  &orig_lstat64);
     MH("fstat",    hook_fstat,    &orig_fstat);
+    MH("open",     hook_open,     &orig_open);
+    MH("openat",   hook_openat,   &orig_openat);
     MH("getenv",   hook_getenv,   &orig_getenv);
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
