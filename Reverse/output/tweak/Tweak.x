@@ -163,8 +163,14 @@ static NSString *gCachedPhone = nil;
 - (void)sendSMSCode:(id)param {
     tlog(@"send_sms", @{@"param": [param description] ?: @"nil"});
     if (!param && gCachedPhone.length) {
-        tlog(@"send_bypass", @{@"phone": gCachedPhone});
-        %orig(gCachedPhone);
+        id fakeModel = [[NSClassFromString(@"RiskAndPwdInfoModel") alloc] init];
+        if (fakeModel) {
+            tlog(@"send_fake_model", @{@"phone": gCachedPhone});
+            %orig(fakeModel);
+        } else {
+            tlog(@"send_bypass_voice", @{@"phone": gCachedPhone});
+            %orig(gCachedPhone);
+        }
         return;
     }
     %orig;

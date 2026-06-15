@@ -209,12 +209,9 @@ static int hook_fstat(int fd, struct stat *s) {
 
 static int (*orig_sandbox_check)(pid_t, const char *, int, const char *);
 static int hook_sandbox_check(pid_t pid, const char *op, int type, const char *path) {
-    if (type == 1 && path && isJailPath(path)) {
-        if (!gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-            tlog(@"sandbox_check_blocked", @{@"op": @(op ?: ""), @"p": @(path)});
-            gInTlog = 0;
-        }
-        return -1;
+    if (type == 1 && path && isJailPath(path) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"sandbox_check_jb", @{@"op": @(op ?: ""), @"p": @(path)});
+        gInTlog = 0;
     }
     return orig_sandbox_check(pid, op, type, path);
 }
