@@ -28,7 +28,7 @@ static const char * const kJailPaths[] = {
     "/Library/MobileSubstrate", "/usr/sbin/sshd", "/usr/bin/ssh",
     "/etc/apt", "/private/var/lib/apt", "/private/var/stash",
     "/usr/lib/TweakInject", "/usr/lib/ellekit", "/usr/lib/substrate",
-    "/private/preboot", "systemhook", "ElleKit", "frida", "FridaGadget",
+    "systemhook", "ElleKit", "frida", "FridaGadget",
     "cynject", "substitute",
     "/bin/bash", "/bin/sh", "/var/lib/cydia", "/var/cache/apt",
     NULL
