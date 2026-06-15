@@ -207,6 +207,24 @@ static int hook_fstat(int fd, struct stat *s) {
     return orig_fstat(fd, s);
 }
 
+static int (*orig_open)(const char *, int, int);
+static int hook_open(const char *p, int flags, int mode) {
+    if (p && isJailPath(p) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"open_jb", @{@"p": @(p)});
+        gInTlog = 0;
+    }
+    return orig_open(p, flags, mode);
+}
+
+static int (*orig_sandbox_check)(pid_t, const char *, int, const char *);
+static int hook_sandbox_check(pid_t pid, const char *op, int type, const char *path) {
+    if (type == 1 && path && isJailPath(path) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"sandbox_check_jb", @{@"op": @(op ?: ""), @"p": @(path)});
+        gInTlog = 0;
+    }
+    return orig_sandbox_check(pid, op, type, path);
+}
+
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
 
@@ -395,8 +413,10 @@ static void hookEnvDetect(void) {
     MH("stat64",   hook_stat64,   &orig_stat64);
     MH("lstat",    hook_lstat,    &orig_lstat);
     MH("lstat64",  hook_lstat64,  &orig_lstat64);
-    MH("fstat",    hook_fstat,    &orig_fstat);
-    MH("getenv",   hook_getenv,   &orig_getenv);
+    MH("fstat",         hook_fstat,         &orig_fstat);
+    MH("open",          hook_open,          &orig_open);
+    MH("sandbox_check", hook_sandbox_check, &orig_sandbox_check);
+    MH("getenv",        hook_getenv,        &orig_getenv);
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
     MH("dlopen",   hook_dlopen,   &orig_dlopen);
