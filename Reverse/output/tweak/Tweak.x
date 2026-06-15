@@ -14,7 +14,6 @@
 #import "clean.h"
 #import "tlog.h"
 #import "net_capture.h"
-#import "dump.h"
 
 // ── WKWebView SSL bypass ─────────────────────────────────────────
 static const char kWKNavSpyKey = 0;
@@ -354,10 +353,6 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             tlog(@"init_jbprobe_done", nil);
             %init(GRiskControl);
             tlog(@"init_riskctl_done", nil);
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)),
-                           dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                dumpMainBinary();
-            });
         }
     }
 }
