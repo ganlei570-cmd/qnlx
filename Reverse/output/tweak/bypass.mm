@@ -148,6 +148,7 @@ static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
 
 static int (*orig_access)(const char *, int);
 static int hook_access(const char *p, int m) {
+    if (p && (strstr(p, "qunartweak") || strstr(p, "/.qn_s") || strstr(p, "/qn_ok"))) return -1;
     if (isJailPath(p)) {
         if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
             if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
@@ -171,8 +172,13 @@ static FILE *(*orig_fopen)(const char *, const char *);
 static FILE *hook_fopen(const char *p, const char *m) { return isJailPath(p) ? NULL : orig_fopen(p, m); }
 
 static int (*orig_stat)(const char *, struct stat *);
+static BOOL isTweakOwnFile(const char *p) {
+    if (!p) return NO;
+    return strstr(p, "qunartweak") || strstr(p, "/.qn_s") || strstr(p, "/qn_ok");
+}
+
 static int hook_stat(const char *p, struct stat *s) {
-    if (p && strstr(p, "qunartweak")) return -1;
+    if (isTweakOwnFile(p)) return -1;
     if (isJailPath(p)) {
         if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
             if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
