@@ -306,6 +306,24 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
+%hook RiskAndPwdInfoModel
+- (id)riskVerifyToken {
+    id val = %orig;
+    tlog(@"risk_model", @{@"p": @"riskVerifyToken", @"nil": @(val == nil)});
+    return val;
+}
+- (NSString *)verifyCodeType {
+    NSString *val = %orig;
+    tlog(@"risk_model", @{@"p": @"verifyCodeType", @"v": val ?: @"nil"});
+    return val;
+}
+- (id)verifyRequestId {
+    id val = %orig;
+    tlog(@"risk_model", @{@"p": @"verifyRequestId", @"nil": @(val == nil)});
+    return val;
+}
+%end
+
 %end // GRiskControl
 
 // ── 初始化 ────────────────────────────────────────────────────────

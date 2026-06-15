@@ -445,5 +445,10 @@ void installBypassHooks(void) {
         (IMP *)&orig_fileExistsIsDir);
     installNetCaptureHooks();
     gStartTime = CFAbsoluteTimeGetCurrent();
+    // v60 诊断：探测 xkjgaol 符号地址，用于 v61 hook 计算
+    void *xkjSym = dlsym(RTLD_DEFAULT, "xkjgaol");
+    tlog(@"xkj_sym", @{@"found": @(xkjSym != NULL),
+                        @"addr": [NSString stringWithFormat:@"%p", xkjSym],
+                        @"popup_off": [NSString stringWithFormat:@"%p", (char*)xkjSym + 8968112]});
     tlog(@"bypass_installed", nil);
 }
