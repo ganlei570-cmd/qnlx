@@ -132,6 +132,18 @@ static NSString *gCachedPhone = nil;
 %hook QSMSCodeLoginVC
 - (void)getSmsCodeClick {
     tlog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"m":@"getSmsCodeClick"});
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        unsigned int mc = 0;
+        Method *methods = class_copyMethodList([self class], &mc);
+        NSMutableArray *names = [NSMutableArray array];
+        for (unsigned int i = 0; i < mc; i++) {
+            [names addObject:NSStringFromSelector(method_getName(methods[i]))];
+        }
+        free(methods);
+        [names sortUsingSelector:@selector(compare:)];
+        for (NSString *n in names) tlog(@"vc_method", @{@"m": n});
+    });
     %orig;
 }
 - (void)setQPhoneStr:(NSString *)phone {
@@ -304,35 +316,6 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 - (void)viewDidLoad {
     tlog(@"risky_vc_load", nil);
     %orig;
-}
-%end
-
-%hook QSMSCodeLoginVC
-- (void)sendSMSCode:(id)model {
-    tlog(@"sms_hook", @{@"model_nil": @(model == nil)});
-    if (!model) {
-        model = [NSClassFromString(@"RiskAndPwdInfoModel") new];
-    }
-    %orig(model);
-}
-%end
-
-%hook RiskAndPwdInfoModel
-- (id)riskVerifyToken {
-    id v = %orig;
-    return v ?: @"bypass_token";
-}
-- (NSString *)verifyCodeType {
-    NSString *v = %orig;
-    return v ?: @"1";
-}
-- (id)verifyRequestId {
-    id v = %orig;
-    return v ?: @"bypass_rid";
-}
-- (id)pwdToken {
-    id v = %orig;
-    return v ?: @"bypass_pwd";
 }
 %end
 
