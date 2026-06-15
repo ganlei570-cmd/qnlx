@@ -414,7 +414,6 @@ static void hookEnvDetect(void) {
     MH("lstat",    hook_lstat,    &orig_lstat);
     MH("lstat64",  hook_lstat64,  &orig_lstat64);
     MH("fstat",         hook_fstat,         &orig_fstat);
-    MH("open",          hook_open,          &orig_open);
     MH("sandbox_check", hook_sandbox_check, &orig_sandbox_check);
     MH("getenv",        hook_getenv,        &orig_getenv);
     MH("popen",    hook_popen,    &orig_popen);
