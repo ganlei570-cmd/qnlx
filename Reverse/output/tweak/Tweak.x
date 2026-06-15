@@ -122,6 +122,9 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 - (void)setQPhoneStr:(NSString *)phone;
 @end
 
+@interface HYRiskyRequestVC : UIViewController
+@end
+
 static NSString *gCachedPhone = nil;
 
 %hook QSMSCodeLoginVC
@@ -158,16 +161,11 @@ static NSString *gCachedPhone = nil;
 }
 %end
 
-// ── UILabel setText 捕获"频繁/安全"弹窗 ────────────────────────
+// ── UILabel setText 诊断"频繁/安全"弹窗（仅记录，不阻断）─────
 %hook UILabel
 - (void)setText:(NSString *)text {
-    if (text && ([text containsString:@"频繁"] || [text containsString:@"安全"] || [text containsString:@"异常"])) {
-        NSArray *frames = [NSThread callStackSymbols];
-        NSUInteger top = MIN((NSUInteger)20, frames.count);
-        NSString *stk = [[frames subarrayWithRange:NSMakeRange(0, top)] componentsJoinedByString:@"|"];
-        tlog(@"label_freq_stk", @{@"t": text, @"stk": stk});
-        return;
-    }
+    if (text && ([text containsString:@"频繁"] || [text containsString:@"安全"] || [text containsString:@"异常"]))
+        tlog(@"label_freq", @{@"t": text});
     %orig;
 }
 %end
@@ -251,40 +249,63 @@ static NSString *gCachedPhone = nil;
 %end
 %end
 
-// ── 运行时扫描 GTS/GI/GX/GT 类 + QSMSCodeLoginVC 方法 ──────────
-static void scanGTSClasses(void) {
-    @try {
-        unsigned int n = 0;
-        Class *all = objc_copyClassList(&n);
-        for (unsigned int i = 0; i < n; i++) {
-            const char *nm = class_getName(all[i]);
-            if (!nm) continue;
-            BOOL match = (strncmp(nm,"GI",2)==0 || strncmp(nm,"GX",2)==0 ||
-                          strncmp(nm,"GT",2)==0 || strcasestr(nm,"geetest") ||
-                          strcasestr(nm,"risk") != NULL);
-            if (!match) continue;
-            unsigned int mc = 0;
-            Method *ms = class_copyMethodList(all[i], &mc);
-            if (mc == 0) { free(ms); continue; }
-            NSMutableArray *sels = [NSMutableArray arrayWithCapacity:mc];
-            for (unsigned int k = 0; k < mc; k++)
-                [sels addObject:NSStringFromSelector(method_getName(ms[k]))];
-            free(ms);
-            tlog(@"gts_scan", @{@"cls": @(nm), @"sels": [sels componentsJoinedByString:@","]});
+// ── GTS 风险控制 bypass ─────────────────────────────────────────
+typedef void (^QNCacheRiskCB)(NSArray *);
+
+static void tryRespSuccess(id response, NSDictionary *data) {
+    for (NSString *selStr in @[@"sendResponse:", @"resolve:", @"success:"]) {
+        SEL s = NSSelectorFromString(selStr);
+        if ([response respondsToSelector:s]) {
+            [response performSelector:s withObject:data];
+            tlog(@"rctl_resp_ok", @{@"sel": selStr});
+            return;
         }
-        free(all);
-        Class smsVC = NSClassFromString(@"QSMSCodeLoginVC");
-        if (smsVC) {
-            unsigned int mc = 0;
-            Method *ms = class_copyMethodList(smsVC, &mc);
-            NSMutableArray *sels = [NSMutableArray arrayWithCapacity:mc];
-            for (unsigned int k = 0; k < mc; k++)
-                [sels addObject:NSStringFromSelector(method_getName(ms[k]))];
-            free(ms);
-            tlog(@"smsvc_scan", @{@"sels": [sels componentsJoinedByString:@","]});
-        }
-    } @catch(id e) { tlog(@"gts_scan_err", @{@"e": [e description]}); }
+    }
+    tlog(@"rctl_resp_unkn", @{@"cls": NSStringFromClass([response class])});
 }
+
+%group GRiskControl
+
+%hook QRCTCacheRiskControl
+- (void)cacheRiskControl:(id)params resultCallback:(QNCacheRiskCB)callback {
+    tlog(@"rctl_bypass", @{@"m": @"cacheRiskControl:resultCallback:"});
+    if (callback) callback(@[NSNull.null, @{@"code": @0, @"bizState": @0}]);
+}
+%end
+
+%hook QRCTRiskControlInfo
+- (void)getRiskControlInfo:(QNCacheRiskCB)callback {
+    tlog(@"rctl_bypass", @{@"m": @"getRiskControlInfo:"});
+    if (callback) callback(@[NSNull.null, @{@"code": @0, @"hasRisk": @NO}]);
+}
+%end
+
+%hook HYRiskControlPlugin
+- (void)riskControl:(id)params response:(id)response {
+    tlog(@"rctl_bypass", @{@"m": @"riskControl:response:"});
+    tryRespSuccess(response, @{@"code": @200, @"bizState": @0});
+}
+- (void)cacheRiskControl:(id)params response:(id)response {
+    tlog(@"rctl_bypass", @{@"m": @"cacheRiskControl:response:"});
+    tryRespSuccess(response, @{@"code": @200, @"bizState": @0});
+}
+%end
+
+%hook QNPRiskInfoPlugin
+- (void)getRiskInfo:(id)params response:(id)response {
+    tlog(@"rctl_bypass", @{@"m": @"getRiskInfo:response:"});
+    tryRespSuccess(response, @{@"code": @200});
+}
+%end
+
+%hook HYRiskyRequestVC
+- (void)viewDidLoad {
+    tlog(@"risky_vc_load", nil);
+    %orig;
+}
+%end
+
+%end // GRiskControl
 
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
@@ -304,8 +325,7 @@ static void scanGTSClasses(void) {
             dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_NOW);
             %init(GCoreTelephony);
             %init(GJailbreakProbe);
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
-                           dispatch_get_global_queue(0, 0), ^{ scanGTSClasses(); });
+            %init(GRiskControl);
         }
     }
 }
