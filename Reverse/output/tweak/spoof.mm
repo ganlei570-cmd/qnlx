@@ -89,10 +89,9 @@ static void logCFDataResult(CFTypeRef *result, NSString *key) {
 static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     NSString *key = kcQueryKey(q);
     if (key && [key containsString:@"__gxsdk_reserved_key104__"]) {
-        NSData *one = [@"1" dataUsingEncoding:NSUTF8StringEncoding];
-        if (result) *result = (__bridge_retained CFTypeRef)one;
-        tlog(@"kc_key104_spoofed", @{@"key": key});
-        return errSecSuccess;
+        if (result) *result = NULL;
+        tlog(@"kc_key104_not_found", @{@"key": key});
+        return errSecItemNotFound;
     }
     // spoof GI/GX key1 → notFound，强迫 GTS 无缓存路径
     if (key && ([key containsString:@"_gikeychain_key1"] || [key containsString:@"_gxkeychain_key1"])) {
