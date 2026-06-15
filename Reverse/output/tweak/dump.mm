@@ -2,7 +2,6 @@
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
 #import <mach/mach.h>
-#import <mach/mach_vm.h>
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
@@ -11,13 +10,11 @@
 
 static bool vmread(vm_address_t src, void *dst, vm_size_t size) {
     // XO pages (execute-only) block vm_read_overwrite; temporarily add read permission
-    mach_vm_protect(mach_task_self(), (mach_vm_address_t)src, (mach_vm_size_t)size,
-                    FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
+    vm_protect(mach_task_self(), src, size, FALSE, VM_PROT_READ | VM_PROT_EXECUTE);
     vm_size_t got = size;
     kern_return_t kr = vm_read_overwrite(mach_task_self(), src, size,
                                           (vm_address_t)dst, &got);
-    mach_vm_protect(mach_task_self(), (mach_vm_address_t)src, (mach_vm_size_t)size,
-                    FALSE, VM_PROT_EXECUTE);
+    vm_protect(mach_task_self(), src, size, FALSE, VM_PROT_EXECUTE);
     return kr == KERN_SUCCESS && got == size;
 }
 
