@@ -307,21 +307,14 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
-%hook RiskAndPwdInfoModel
-- (id)riskVerifyToken {
-    id val = %orig;
-    tlog(@"risk_model", @{@"p": @"riskVerifyToken", @"nil": @(val == nil)});
-    return val;
-}
-- (NSString *)verifyCodeType {
-    NSString *val = %orig;
-    tlog(@"risk_model", @{@"p": @"verifyCodeType", @"v": val ?: @"nil"});
-    return val;
-}
-- (id)verifyRequestId {
-    id val = %orig;
-    tlog(@"risk_model", @{@"p": @"verifyRequestId", @"nil": @(val == nil)});
-    return val;
+%hook QSMSCodeLoginVC
+- (void)sendSMSCode:(id)model {
+    tlog(@"sms_hook", @{@"model_nil": @(model == nil)});
+    if (!model) {
+        model = [NSClassFromString(@"RiskAndPwdInfoModel") new];
+        tlog(@"sms_hook", @{@"action": @"injected_empty_model"});
+    }
+    %orig(model);
 }
 %end
 
@@ -346,26 +339,6 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             %init(GCoreTelephony);
             %init(GJailbreakProbe);
             %init(GRiskControl);
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC),
-                dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-                    @autoreleasepool {
-                        SEL target = @selector(sendSMSCode:);
-                        unsigned int count = 0;
-                        Class *classes = objc_copyClassList(&count);
-                        for (unsigned int i = 0; i < count; i++) {
-                            unsigned int mc = 0;
-                            Method *methods = class_copyMethodList(classes[i], &mc);
-                            for (unsigned int j = 0; j < mc; j++) {
-                                if (sel_isEqual(method_getName(methods[j]), target)) {
-                                    tlog(@"sms_owner", @{@"cls": NSStringFromClass(classes[i])});
-                                }
-                            }
-                            free(methods);
-                        }
-                        free(classes);
-                        tlog(@"sms_scan_done", nil);
-                    }
-                });
         }
     }
 }
