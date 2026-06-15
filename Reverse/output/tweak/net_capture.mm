@@ -193,12 +193,18 @@ static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
         NSString *u = req.URL.absoluteString ?: @"";
         if ([u containsString:@"qunar"]) {
             NSData *body = req.HTTPBody;
-            NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
-            tlog(@"req_del", @{
-                @"u": u.length > 200 ? [u substringToIndex:200] : u,
-                @"m": req.HTTPMethod ?: @"GET",
-                @"b": bs.length > 1500 ? [bs substringToIndex:1500] : bs
-            });
+            if ([u containsString:@"p_ucGetVcodeV2"] && body.length > 0) {
+                // dump raw protobuf as base64 so we can decode field layout
+                NSString *b64 = [body base64EncodedStringWithOptions:0];
+                tlog(@"vcode_pb64", @{@"len": @(body.length), @"b64": b64});
+            } else {
+                NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
+                tlog(@"req_del", @{
+                    @"u": u.length > 200 ? [u substringToIndex:200] : u,
+                    @"m": req.HTTPMethod ?: @"GET",
+                    @"b": bs.length > 1500 ? [bs substringToIndex:1500] : bs
+                });
+            }
         }
     } @catch(id e) {}
     return orig_dataTaskReqDel(self, cmd, req);
