@@ -14,6 +14,7 @@
 #import "clean.h"
 #import "tlog.h"
 #import "net_capture.h"
+#import "dump.h"
 
 // ── WKWebView SSL bypass ─────────────────────────────────────────
 static const char kWKNavSpyKey = 0;
@@ -329,6 +330,10 @@ static void tryRespSuccess(id response, NSDictionary *data) {
         if ([bid isEqualToString:@"com.qunar.iphoneclient8"]) {
             [@"1" writeToFile:@"/tmp/qunartweak_loaded" atomically:YES encoding:NSUTF8StringEncoding error:nil];
             tlog(@"tweak_loaded", nil);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC),
+                           dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+                dumpMainBinary();
+            });
             loadProfile();
             installBypassHooks();
             installSpoofHooks();
