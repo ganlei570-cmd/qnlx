@@ -56,11 +56,6 @@ static BOOL isInjDylib(const char *n) {
     return NO;
 }
 
-static void (*orig_xkj_popup)(void *, void *, void *, void *);
-static void hook_xkj_popup(void *a, void *b, void *c, void *d) {
-    tlog(@"xkj_popup_suppressed", nil);
-}
-
 static int (*orig_ptrace)(int, pid_t, caddr_t, int);
 static int hook_ptrace(int req, pid_t pid, caddr_t addr, int data) {
     return (req == 31) ? 0 : orig_ptrace(req, pid, addr, data);
@@ -471,11 +466,5 @@ void installBypassHooks(void) {
     installNetCaptureHooks();
     gStartTime = CFAbsoluteTimeGetCurrent();
     // v60 诊断：探测 xkjgaol 符号地址，用于 v61 hook 计算
-    void *xkjSym = dlsym(RTLD_DEFAULT, "xkjgaol");
-    if (xkjSym) {
-        void *popupFn = (char*)xkjSym + 8968112;
-        MSHookFunction(popupFn, (void*)hook_xkj_popup, (void**)&orig_xkj_popup);
-        tlog(@"xkj_popup_hooked", @{@"addr": [NSString stringWithFormat:@"%p", popupFn]});
-    }
     tlog(@"bypass_installed", nil);
 }
