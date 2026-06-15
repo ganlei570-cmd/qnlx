@@ -162,7 +162,10 @@ static NSString *gCachedPhone = nil;
 %hook UILabel
 - (void)setText:(NSString *)text {
     if (text && ([text containsString:@"频繁"] || [text containsString:@"安全"] || [text containsString:@"异常"])) {
-        tlog(@"label_freq_blocked", @{@"t": text});
+        NSArray *frames = [NSThread callStackSymbols];
+        NSUInteger top = MIN((NSUInteger)20, frames.count);
+        NSString *stk = [[frames subarrayWithRange:NSMakeRange(0, top)] componentsJoinedByString:@"|"];
+        tlog(@"label_freq_stk", @{@"t": text, @"stk": stk});
         return;
     }
     %orig;
@@ -248,6 +251,41 @@ static NSString *gCachedPhone = nil;
 %end
 %end
 
+// ── 运行时扫描 GTS/GI/GX/GT 类 + QSMSCodeLoginVC 方法 ──────────
+static void scanGTSClasses(void) {
+    @try {
+        unsigned int n = 0;
+        Class *all = objc_copyClassList(&n);
+        for (unsigned int i = 0; i < n; i++) {
+            const char *nm = class_getName(all[i]);
+            if (!nm) continue;
+            BOOL match = (strncmp(nm,"GI",2)==0 || strncmp(nm,"GX",2)==0 ||
+                          strncmp(nm,"GT",2)==0 || strcasestr(nm,"geetest") ||
+                          strcasestr(nm,"risk") != NULL);
+            if (!match) continue;
+            unsigned int mc = 0;
+            Method *ms = class_copyMethodList(all[i], &mc);
+            if (mc == 0) { free(ms); continue; }
+            NSMutableArray *sels = [NSMutableArray arrayWithCapacity:mc];
+            for (unsigned int k = 0; k < mc; k++)
+                [sels addObject:NSStringFromSelector(method_getName(ms[k]))];
+            free(ms);
+            tlog(@"gts_scan", @{@"cls": @(nm), @"sels": [sels componentsJoinedByString:@","]});
+        }
+        free(all);
+        Class smsVC = NSClassFromString(@"QSMSCodeLoginVC");
+        if (smsVC) {
+            unsigned int mc = 0;
+            Method *ms = class_copyMethodList(smsVC, &mc);
+            NSMutableArray *sels = [NSMutableArray arrayWithCapacity:mc];
+            for (unsigned int k = 0; k < mc; k++)
+                [sels addObject:NSStringFromSelector(method_getName(ms[k]))];
+            free(ms);
+            tlog(@"smsvc_scan", @{@"sels": [sels componentsJoinedByString:@","]});
+        }
+    } @catch(id e) { tlog(@"gts_scan_err", @{@"e": [e description]}); }
+}
+
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
     @autoreleasepool {
@@ -266,6 +304,8 @@ static NSString *gCachedPhone = nil;
             dlopen("/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony", RTLD_NOW);
             %init(GCoreTelephony);
             %init(GJailbreakProbe);
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
+                           dispatch_get_global_queue(0, 0), ^{ scanGTSClasses(); });
         }
     }
 }

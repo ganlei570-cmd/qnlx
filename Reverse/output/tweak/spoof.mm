@@ -69,6 +69,23 @@ static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
 }
 
 static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
+static void logCFDataResult(CFTypeRef *result, NSString *key) {
+    if (!result || !*result) return;
+    NSData *data = nil;
+    CFTypeRef rv = *result;
+    if (CFGetTypeID(rv) == CFDataGetTypeID())
+        data = (__bridge NSData *)rv;
+    else if (CFGetTypeID(rv) == CFDictionaryGetTypeID()) {
+        CFTypeRef v = CFDictionaryGetValue((CFDictionaryRef)rv, kSecValueData);
+        if (v && CFGetTypeID(v) == CFDataGetTypeID()) data = (__bridge NSData *)v;
+    }
+    if (!data) return;
+    NSMutableString *h = [NSMutableString string];
+    for (NSUInteger i = 0; i < MIN(data.length, 32); i++)
+        [h appendFormat:@"%02x", ((const uint8_t *)data.bytes)[i]];
+    tlog(@"kc_read_val", @{@"key": key, @"hex": h, @"len": @(data.length)});
+}
+
 static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     NSString *key = kcQueryKey(q);
     if (key && [key containsString:@"__gxsdk_reserved_key104__"]) {
@@ -76,12 +93,20 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
         tlog(@"kc_key104_spoofed", @{@"key": key});
         return errSecSuccess;
     }
+    // spoof GI/GX key1 → notFound，强迫 GTS 无缓存路径
+    if (key && ([key containsString:@"_gikeychain_key1"] || [key containsString:@"_gxkeychain_key1"])) {
+        tlog(@"kc_key1_spoofed", @{@"key": key});
+        if (result) *result = NULL;
+        return errSecItemNotFound;
+    }
     if (shouldBlockKey(key)) {
         tlog(@"kc_blocked", @{@"key": key ?: @"nil"});
         if (result) *result = NULL;
         return errSecItemNotFound;
     }
     OSStatus r = orig_SecItemCopyMatching(q, result);
+    if (r == errSecSuccess && key && isGtsKey(key))
+        logCFDataResult(result, key);
     if (key && (isQunarKey(key) || isGtsKey(key)))
         tlog(@"kc_read", @{@"key": key, @"status": @(r)});
     return r;
