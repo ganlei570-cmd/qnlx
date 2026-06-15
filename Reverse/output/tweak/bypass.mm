@@ -19,6 +19,8 @@
 #import "net_capture.h"
 #import <CommonCrypto/CommonDigest.h>
 #import <mach-o/dyld_images.h>
+#import <CommonCrypto/CommonDigest.h>
+extern char **environ;
 
 static const char * const kJailPaths[] = {
     "/var/jb", "/private/var/jb",
@@ -306,6 +308,54 @@ static void hook__exit(int code) { tlog(@"_exit_blocked", @{@"code": @(code)}); 
 static void (*orig_abort)(void);
 static void hook_abort(void) { tlog(@"abort_blocked", nil); }
 
+// ── CC_MD5 / CC_SHA256 / sandbox_check 诊断 ─────────────────────
+typedef unsigned char *(*CC_MD5_fn)(const void *, CC_LONG, unsigned char *);
+static CC_MD5_fn orig_CC_MD5 = NULL;
+static unsigned char *hook_CC_MD5(const void *data, CC_LONG len, unsigned char *md) {
+    unsigned char *r = orig_CC_MD5(data, len, md);
+    if (r && data && len > 0 && gStartTime > 0 && (CFAbsoluteTimeGetCurrent()-gStartTime) < 5.0
+        && r[0]==0xf4 && r[1]==0xf8 && r[2]==0x7a) {
+        if (!gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+            NSMutableString *h = [NSMutableString string];
+            for (CC_LONG i = 0; i < MIN(len, 128); i++) [h appendFormat:@"%02x", ((uint8_t*)data)[i]];
+            tlog(@"md5_jb_in", @{@"len": @(len), @"hex": h});
+            gInTlog = 0;
+        }
+    }
+    return r;
+}
+
+typedef unsigned char *(*CC_SHA256_fn)(const void *, CC_LONG, unsigned char *);
+static CC_SHA256_fn orig_CC_SHA256 = NULL;
+static unsigned char *hook_CC_SHA256(const void *data, CC_LONG len, unsigned char *md) {
+    unsigned char *r = orig_CC_SHA256(data, len, md);
+    if (r && data && len > 0 && gStartTime > 0 && (CFAbsoluteTimeGetCurrent()-gStartTime) < 5.0
+        && r[0]==0xf4 && r[1]==0xf8 && r[2]==0x7a) {
+        if (!gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+            NSMutableString *h = [NSMutableString string];
+            for (CC_LONG i = 0; i < MIN(len, 128); i++) [h appendFormat:@"%02x", ((uint8_t*)data)[i]];
+            tlog(@"sha256_jb_in", @{@"len": @(len), @"hex": h});
+            gInTlog = 0;
+        }
+    }
+    return r;
+}
+
+typedef int (*sandbox_check_fn)(pid_t, const char *, int, ...);
+static sandbox_check_fn orig_sandbox_check = NULL;
+static int hook_sandbox_check(pid_t pid, const char *op, int type, ...) {
+    va_list args; va_start(args, type);
+    const char *path = va_arg(args, const char *); va_end(args);
+    int r = orig_sandbox_check(pid, op, type, path);
+    if (gStartTime > 0 && (CFAbsoluteTimeGetCurrent()-gStartTime) < 5.0) {
+        if (!gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+            tlog(@"sb_chk", @{@"op": op?@(op):@"?", @"p": path?@(path):@"?", @"r": @(r)});
+            gInTlog = 0;
+        }
+    }
+    return r;
+}
+
 static int (*orig_kill)(pid_t, int);
 static int hook_kill(pid_t pid, int sig) {
     if (pid == getpid() && (sig == SIGKILL || sig == SIGTERM)) {
@@ -376,8 +426,17 @@ void installSSLBypassAlways(void) {
 }
 
 void installBypassHooks(void) {
+    // Dump DYLD_ env vars before anything else
+    for (char **e = environ; e && *e; e++) {
+        if (strncmp(*e, "DYLD_", 5) == 0 || strncmp(*e, "LD_PRELOAD", 10) == 0)
+            tlog(@"env_dyld", @{@"v": @(*e)});
+    }
     hookAntiDebug();
     hookEnvDetect();
+    MH("CC_MD5",    hook_CC_MD5,    &orig_CC_MD5);
+    MH("CC_SHA256", hook_CC_SHA256, &orig_CC_SHA256);
+    orig_sandbox_check = (sandbox_check_fn)dlsym(RTLD_DEFAULT, "sandbox_check");
+    if (orig_sandbox_check) MSHookFunction((void*)orig_sandbox_check, (void*)hook_sandbox_check, (void**)&orig_sandbox_check);
     dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW);
     MH("IORegistryEntryCreateCFProperty", hook_IORegCreateCFProp, &orig_IORegCreateCFProp);
     MH("SecTrustEvaluate", hook_SecTrustEvaluate, &orig_SecTrustEvaluate);
