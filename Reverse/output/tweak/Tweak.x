@@ -5,6 +5,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <WebKit/WebKit.h>
+#import <objc/message.h>
 #import <dlfcn.h>
 #import "profile.h"
 #import "bypass.h"
@@ -256,7 +257,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
     for (NSString *selStr in @[@"sendResponse:", @"resolve:", @"success:"]) {
         SEL s = NSSelectorFromString(selStr);
         if ([response respondsToSelector:s]) {
-            [response performSelector:s withObject:data];
+            ((void (*)(id, SEL, id))objc_msgSend)(response, s, data);
             tlog(@"rctl_resp_ok", @{@"sel": selStr});
             return;
         }
