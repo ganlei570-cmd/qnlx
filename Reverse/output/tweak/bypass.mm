@@ -172,6 +172,7 @@ static FILE *hook_fopen(const char *p, const char *m) { return isJailPath(p) ? N
 
 static int (*orig_stat)(const char *, struct stat *);
 static int hook_stat(const char *p, struct stat *s) {
+    if (p && strstr(p, "qunartweak")) return -1;
     if (isJailPath(p)) {
         if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
             if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {

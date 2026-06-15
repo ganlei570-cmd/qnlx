@@ -7,7 +7,7 @@ static NSString *tlogFilePath(void) {
     static NSString *p;
     static dispatch_once_t t;
     dispatch_once(&t, ^{
-        p = [NSTemporaryDirectory() stringByAppendingPathComponent:@"qunartweak_diag.log"];
+        p = @"/var/mobile/Library/qunar_diag.log";
     });
     return p;
 }

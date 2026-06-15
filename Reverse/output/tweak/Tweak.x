@@ -348,6 +348,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
         NSString *bid = [[NSBundle mainBundle] bundleIdentifier];
         if ([bid isEqualToString:@"com.qunar.iphoneclient8"]) {
             [@"1" writeToFile:@"/tmp/qunartweak_loaded" atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            [[NSFileManager defaultManager] removeItemAtPath:[NSTemporaryDirectory() stringByAppendingPathComponent:@"qunartweak_diag.log"] error:nil];
             tlog(@"tweak_loaded", nil);
             loadProfile();
             installBypassHooks();
