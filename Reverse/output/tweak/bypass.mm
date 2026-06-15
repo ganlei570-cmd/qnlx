@@ -219,28 +219,6 @@ static int hook_sandbox_check(pid_t pid, const char *op, int type, const char *p
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
 
-// csops: hide CS_GET_TASK_ALLOW and CS_DEBUGGED set by Dopamine/ElleKit
-static int (*orig_csops)(pid_t, unsigned int, void *, size_t);
-static int hook_csops(pid_t pid, unsigned int ops, void *useraddr, size_t usersize) {
-    int ret = orig_csops(pid, ops, useraddr, usersize);
-    if (ops == 0 /* CS_OPS_STATUS */ && ret == 0 && usersize >= 4) {
-        unsigned int *flags = (unsigned int *)useraddr;
-        tlog(@"csops_flags", @{@"orig": [NSString stringWithFormat:@"0x%x", *flags]});
-        *flags &= ~(0x00000004u /* CS_GET_TASK_ALLOW */ | 0x10000000u /* CS_DEBUGGED */);
-    }
-    return ret;
-}
-
-// statfs: fake ENOENT for jailbreak mount points
-#import <sys/mount.h>
-static int (*orig_statfs)(const char *, struct statfs *);
-static int hook_statfs(const char *path, struct statfs *buf) {
-    if (path && isJailPath(path)) {
-        tlog(@"statfs_blocked", @{@"p": @(path)});
-        errno = ENOENT; return -1;
-    }
-    return orig_statfs(path, buf);
-}
 
 static char *(*orig_getenv)(const char *);
 static char *hook_getenv(const char *k) {
@@ -429,8 +407,6 @@ static void hookEnvDetect(void) {
     MH("lstat64",  hook_lstat64,  &orig_lstat64);
     MH("fstat",         hook_fstat,         &orig_fstat);
     MH("sandbox_check", hook_sandbox_check, &orig_sandbox_check);
-    MH("csops",   hook_csops,   &orig_csops);
-    MH("statfs",  hook_statfs,  &orig_statfs);
     MH("getenv",        hook_getenv,        &orig_getenv);
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
