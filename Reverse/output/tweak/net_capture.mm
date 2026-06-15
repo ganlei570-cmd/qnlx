@@ -63,10 +63,12 @@ static OSStatus (*orig_SSLWrite)(SSLContextRef, const void *, size_t, size_t *);
 static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLen, size_t *processed) {
     @try {
         if (dataLen > 10) {
-            NSString *s = [[NSString alloc] initWithBytes:data length:MIN(dataLen, 300) encoding:NSUTF8StringEncoding];
+            NSString *s = [[NSString alloc] initWithBytes:data length:MIN(dataLen, 2000) encoding:NSUTF8StringEncoding];
             if (s && ([s containsString:@"qunar.com"] || [s containsString:@"passport"] ||
-                      [s containsString:@"risk"]))
-                tlog(@"ssl_req", @{@"s": s.length > 300 ? [s substringToIndex:300] : s});
+                      [s containsString:@"risk"] || [s containsString:@"phone"] ||
+                      [s containsString:@"sms"] || [s containsString:@"verif"] ||
+                      [s containsString:@"sendCode"] || [s containsString:@"register"]))
+                tlog(@"ssl_req", @{@"s": s.length > 2000 ? [s substringToIndex:2000] : s});
         }
     } @catch(id e) {}
     return orig_SSLWrite(ctx, data, dataLen, processed);
@@ -169,13 +171,13 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
         if ([u containsString:@"qunar"]) {
             tlog(@"req_all", @{@"u": u.length > 200 ? [u substringToIndex:200] : u,
                                @"m": req.HTTPMethod ?: @"GET"});
-            if ([u containsString:@"slugger"] || [u containsString:@"passport"]) {
+            if ([u containsString:@"qunar"]) {
                 NSData *body = req.HTTPBody;
                 if (body.length > 0) {
                     NSString *bs = [[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding];
                     tlog(@"req_body", @{
                         @"u": u.length > 100 ? [u substringToIndex:100] : u,
-                        @"b": (bs ?: @"[binary]").length > 600 ? [(bs ?: @"[binary]") substringToIndex:600] : (bs ?: @"[binary]")
+                        @"b": (bs ?: @"[binary]").length > 1500 ? [(bs ?: @"[binary]") substringToIndex:1500] : (bs ?: @"[binary]")
                     });
                 }
             }
@@ -187,7 +189,18 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
 // delegate-based dataTask（h_hlist 走这条路）
 static id (*orig_dataTaskReqDel)(id, SEL, NSURLRequest *);
 static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
-
+    @try {
+        NSString *u = req.URL.absoluteString ?: @"";
+        if ([u containsString:@"qunar"]) {
+            NSData *body = req.HTTPBody;
+            NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
+            tlog(@"req_del", @{
+                @"u": u.length > 200 ? [u substringToIndex:200] : u,
+                @"m": req.HTTPMethod ?: @"GET",
+                @"b": bs.length > 1500 ? [bs substringToIndex:1500] : bs
+            });
+        }
+    } @catch(id e) {}
     return orig_dataTaskReqDel(self, cmd, req);
 }
 
