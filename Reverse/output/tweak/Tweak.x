@@ -346,9 +346,10 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             %init(GCoreTelephony);
             %init(GJailbreakProbe);
             %init(GRiskControl);
+            tlog(@"dump_queued", nil);
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC),
-                dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-                    dumpMainBinary();
+                dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    @autoreleasepool { dumpMainBinary(); }
                 });
         }
     }
