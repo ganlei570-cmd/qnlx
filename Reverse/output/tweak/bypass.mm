@@ -172,7 +172,10 @@ static FILE *hook_fopen(const char *p, const char *m) { return isJailPath(p) ? N
 
 static int (*orig_open)(const char *, int, ...);
 static int hook_open(const char *p, int f, ...) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
+    if (isJailPath(p) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"open_jb", @{@"p": @(p ?: "")});
+        gInTlog = 0;
+    }
     if (f & O_CREAT) {
         va_list ap; va_start(ap, f); mode_t m = va_arg(ap, int); va_end(ap);
         return orig_open(p, f, m);
@@ -181,7 +184,10 @@ static int hook_open(const char *p, int f, ...) {
 }
 static int (*orig_openat)(int, const char *, int, ...);
 static int hook_openat(int d, const char *p, int f, ...) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
+    if (isJailPath(p) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"openat_jb", @{@"p": @(p ?: "")});
+        gInTlog = 0;
+    }
     if (f & O_CREAT) {
         va_list ap; va_start(ap, f); mode_t m = va_arg(ap, int); va_end(ap);
         return orig_openat(d, p, f, m);
