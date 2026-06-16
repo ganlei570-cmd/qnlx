@@ -20,7 +20,7 @@
 static const char kSSLProxyKey = 0;
 
 @interface QNSSLDelegate : NSObject <NSURLSessionDelegate, NSURLSessionTaskDelegate>
-@property (nonatomic, weak) id realDelegate;
+@property (nonatomic, strong) id realDelegate;
 @end
 @implementation QNSSLDelegate
 - (BOOL)respondsToSelector:(SEL)sel {
@@ -114,9 +114,10 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
     if (delegate && ![delegate isKindOfClass:[QNSSLDelegate class]]) {
         QNSSLDelegate *proxy = [QNSSLDelegate new];
         proxy.realDelegate = delegate;
-        objc_setAssociatedObject(delegate, &kSSLProxyKey, proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        NSURLSession *session = %orig(config, proxy, queue);
+        if (session) objc_setAssociatedObject(session, &kSSLProxyKey, proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         tlog(@"ssl_session_wrap", @{@"cls": NSStringFromClass([delegate class]) ?: @""});
-        return %orig(config, proxy, queue);
+        return session;
     }
     return %orig;
 }
