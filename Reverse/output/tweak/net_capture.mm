@@ -125,10 +125,15 @@ static char kVcodeAccKey = 0;
         if ([u containsString:@"p_ucGetVcodeV2"]) {
             NSMutableData *acc = objc_getAssociatedObject(t, &kVcodeAccKey);
             NSString *str = acc ? ([[NSString alloc] initWithData:acc encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_data]";
+            NSMutableString *hexStr = [NSMutableString string];
+            const uint8_t *rawBytes = (const uint8_t *)acc.bytes;
+            for (NSUInteger hi = 0; hi < MIN(acc.length, 128); hi++)
+                [hexStr appendFormat:@"%02x", rawBytes[hi]];
             tlog(@"vcode_resp", @{
                 @"len": @(acc.length),
                 @"str": str.length > 600 ? [str substringToIndex:600] : str,
-                @"err": e.localizedDescription ?: @""
+                @"err": e.localizedDescription ?: @"",
+                @"hex": hexStr
             });
         } else if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"]) {
             tlog(@"resp_done", @{
