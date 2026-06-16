@@ -68,23 +68,25 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
-// ── NSURLSession vcode 接口响应捕获 ─────────────────────────────
+// ── NSURLSession 所有非2xx响应捕获（诊断用）────────────────────
 %hook NSURLSession
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)req completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))handler {
     NSString *url = req.URL.absoluteString ?: @"";
-    if ([url containsString:@"vcode"] || [url containsString:@"sms"] || [url containsString:@"sendCode"]) {
-        tlog(@"vcode_req", @{@"url": url, @"method": req.HTTPMethod ?: @""});
-        void(^wrapped)(NSData *, NSURLResponse *, NSError *) = ^(NSData *data, NSURLResponse *resp, NSError *err) {
-            NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
-            NSString *body = data ? ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
-            NSString *errStr = err ? err.localizedDescription : @"nil";
-            tlog(@"vcode_resp", @{@"status": @(http.statusCode), @"body": [body substringToIndex:MIN(500, body.length)], @"err": errStr});
-            cloudLog(@"vcode_resp", @{@"url": url, @"status": @(http.statusCode), @"body": [body substringToIndex:MIN(500, body.length)], @"err": errStr, @"idfv": gIDFV ?: @""});
-            if (handler) handler(data, resp, err);
-        };
-        return %orig(req, wrapped);
-    }
-    return %orig;
+    void(^wrapped)(NSData *, NSURLResponse *, NSError *) = ^(NSData *data, NSURLResponse *resp, NSError *err) {
+        NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
+        NSInteger status = http.statusCode;
+        NSString *body = data ? ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
+        NSString *errStr = err ? err.localizedDescription : @"nil";
+        if (status < 200 || status >= 300 || err) {
+            tlog(@"http_err", @{@"url": url, @"status": @(status), @"body": [body substringToIndex:MIN(300, body.length)], @"err": errStr});
+            cloudLog(@"http_err", @{@"url": url, @"status": @(status), @"body": [body substringToIndex:MIN(300, body.length)], @"err": errStr, @"idfv": gIDFV ?: @""});
+        } else if ([url containsString:@"unar"] || [url containsString:@"qunar"]) {
+            // 记录去哪儿接口成功响应（含业务错误码）
+            cloudLog(@"http_ok", @{@"url": url, @"body": [body substringToIndex:MIN(300, body.length)], @"idfv": gIDFV ?: @""});
+        }
+        if (handler) handler(data, resp, err);
+    };
+    return %orig(req, wrapped);
 }
 %end
 
@@ -220,8 +222,12 @@ static NSString *gCachedPhone = nil;
 // ── UILabel setText 诊断"频繁/安全"弹窗（仅记录，不阻断）─────
 %hook UILabel
 - (void)setText:(NSString *)text {
-    if (text && ([text containsString:@"频繁"] || [text containsString:@"安全"] || [text containsString:@"异常"]))
-        tlog(@"label_freq", @{@"t": text});
+    if (text && ([text containsString:@"频繁"] || [text containsString:@"安全"] ||
+                 [text containsString:@"异常"] || [text containsString:@"出错"] ||
+                 [text containsString:@"重试"] || [text containsString:@"失败"])) {
+        tlog(@"label_err", @{@"t": text});
+        cloudLog(@"label_err", @{@"t": text, @"idfv": gIDFV ?: @""});
+    }
     %orig;
 }
 %end
