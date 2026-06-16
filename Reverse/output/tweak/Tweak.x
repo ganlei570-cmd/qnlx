@@ -135,12 +135,6 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 @interface RiskAndPwdInfoModel : NSObject
 @end
 
-@interface NetworkTask : NSObject
-+ (void)startNetwork:(NSString *)name withIPURL:(id)ip withParam:(id)param
-    withNetworkDelgt:(id)d withPriority:(id)pri
-    withBusinessDelgt:(id)biz withCustomInfo:(id)info
-    timeoutInterval:(double)t;
-@end
 
 static NSString *gCachedPhone = nil;
 
@@ -351,21 +345,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 
 %end // GRiskControl
 
-// ── 诊断：NetworkTask 明文参数 + RiskAndPwdInfoModel token（只读）─
-%hook NetworkTask
-+ (void)startNetwork:(NSString *)name withIPURL:(id)ip withParam:(id)param
-    withNetworkDelgt:(id)d withPriority:(id)pri
-    withBusinessDelgt:(id)biz withCustomInfo:(id)info
-    timeoutInterval:(double)t {
-    if ([name containsString:@"ucGetVcode"] || [name containsString:@"ucVcode"]) {
-        NSString *desc = [param description] ?: @"nil";
-        if (desc.length > 800) desc = [desc substringToIndex:800];
-        tlog(@"net_vcode_param", @{@"name": name ?: @"", @"p": desc});
-    }
-    %orig;
-}
-%end
-
+// ── 诊断：RiskAndPwdInfoModel token（只读）─────────────────────────
 %hook RiskAndPwdInfoModel
 - (void)setRiskVerifyToken:(id)token {
     tlog(@"risk_model_set", @{@"v": [token description] ?: @"nil"});
