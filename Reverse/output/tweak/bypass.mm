@@ -425,8 +425,9 @@ static void hookEnvDetect(void) {
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
     MH("dlopen",  hook_dlopen,  &orig_dlopen);
-    MH("open",    hook_open,    &orig_open);
-    MH("openat",  hook_openat,  &orig_openat);
+    // open/openat hook 导致闪退（arm64e varargs ABI 问题），暂时禁用
+    // MH("open",    hook_open,    &orig_open);
+    // MH("openat",  hook_openat,  &orig_openat);
 }
 
 // SSL pinning bypass — allows mitmproxy MITM
