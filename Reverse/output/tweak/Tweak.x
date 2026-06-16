@@ -98,6 +98,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 // ── NSURLConnection 响应捕获（vcode 请求可能走此路径）────────────
 %hook NSURLConnection
 + (void)sendAsynchronousRequest:(NSURLRequest *)req queue:(NSOperationQueue *)q completionHandler:(void(^)(NSURLResponse *, NSData *, NSError *))handler {
+    if (!handler) { %orig; return; }
     NSString *url = req.URL.absoluteString ?: @"";
     BOOL isQunar = [url containsString:@"unar"] || [url containsString:@"qunar"];
     if (isQunar) {
@@ -241,7 +242,7 @@ static NSString *gCachedPhone = nil;
     cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
     id wrappedSuccess = success ? [^(id result) {
         cloudLog(@"send_vcode2_success", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
-        ((void(^)(id))success)(result);
+        ((void(^)(id, id))success)(result, nil);
     } copy] : nil;
     id wrappedFail = fail ? [^(id result) {
         cloudLog(@"send_vcode2_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
