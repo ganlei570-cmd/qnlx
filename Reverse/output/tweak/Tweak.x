@@ -186,6 +186,11 @@ static NSString *gCachedPhone = nil;
     if (sms != type) tlog(@"vcode_sms", @{@"was": [type description], @"now": [sms description]});
     %orig(sms);
 }
+- (void)setRiskVerifyToken:(id)token {
+    tlog(@"risk_token", @{@"v": [token description] ?: @"nil", @"len": @([[token description] length])});
+    // 置 nil — 阻止高风险 token 传给服务器
+    %orig(nil);
+}
 %end
 
 %hook QComVerifyLoginView
