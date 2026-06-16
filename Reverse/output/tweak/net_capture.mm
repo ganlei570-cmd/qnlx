@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <Security/SecureTransport.h>
+#import <CommonCrypto/CommonCryptor.h>
 #import <dlfcn.h>
 #import <zlib.h>
 #import <substrate.h>
@@ -311,7 +312,31 @@ NSString *captureProxyHost(void) {
     return [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 }
 
+typedef CCCryptorStatus (*CCCryptFn)(CCOperation, CCAlgorithm, CCOptions,
+                                    const void *, size_t, const void *,
+                                    const void *, size_t,
+                                    void *, size_t, size_t *);
+static CCCryptFn orig_CCCrypt;
+static CCCryptorStatus hook_CCCrypt(CCOperation op, CCAlgorithm alg, CCOptions opts,
+                                    const void *key, size_t keyLen, const void *iv,
+                                    const void *dataIn, size_t dataInLen,
+                                    void *dataOut, size_t dataOutAvail, size_t *dataOutMoved) {
+    CCCryptorStatus r = orig_CCCrypt(op, alg, opts, key, keyLen, iv,
+                                     dataIn, dataInLen, dataOut, dataOutAvail, dataOutMoved);
+    if (r != kCCSuccess || op != kCCDecrypt || !dataOut || !dataOutMoved || *dataOutMoved < 2) return r;
+    if (((const uint8_t *)dataOut)[0] != '{') return r;
+    @try {
+        NSString *s = [[NSString alloc] initWithBytes:dataOut
+                                               length:MIN(*dataOutMoved, 500)
+                                             encoding:NSUTF8StringEncoding];
+        if (s) tlog(@"crypt_plain", @{@"j": s});
+    } @catch(id e) {}
+    return r;
+}
+
 void installNetCaptureHooks(void) {
+    void *fnc = dlsym(RTLD_DEFAULT, "CCCrypt");
+    if (fnc) MSHookFunction(fnc, (void *)hook_CCCrypt, (void **)&orig_CCCrypt);
     void *fnr = dlsym(RTLD_DEFAULT, "SSLRead");
     if (fnr) MSHookFunction(fnr, (void *)hook_SSLRead, (void **)&orig_SSLRead);
     void *fnw = dlsym(RTLD_DEFAULT, "SSLWrite");
