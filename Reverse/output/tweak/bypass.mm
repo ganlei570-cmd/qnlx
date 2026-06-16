@@ -28,7 +28,7 @@ static const char * const kJailPaths[] = {
     "/Library/MobileSubstrate", "/usr/sbin/sshd", "/usr/bin/ssh",
     "/etc/apt", "/private/var/lib/apt", "/private/var/stash",
     "/usr/lib/TweakInject", "/usr/lib/ellekit", "/usr/lib/substrate",
-    "systemhook", "ElleKit", "frida", "FridaGadget",
+    "/private/preboot", "systemhook", "ElleKit", "frida", "FridaGadget",
     "cynject", "substitute",
     "/bin/bash", "/bin/sh", "/var/lib/cydia", "/var/cache/apt",
     NULL
@@ -148,7 +148,6 @@ static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
 
 static int (*orig_access)(const char *, int);
 static int hook_access(const char *p, int m) {
-    if (p && (strstr(p, "qunartweak") || strstr(p, "/.qn_s") || strstr(p, "/qn_ok"))) return -1;
     if (isJailPath(p)) {
         if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
             if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
@@ -172,13 +171,7 @@ static FILE *(*orig_fopen)(const char *, const char *);
 static FILE *hook_fopen(const char *p, const char *m) { return isJailPath(p) ? NULL : orig_fopen(p, m); }
 
 static int (*orig_stat)(const char *, struct stat *);
-static BOOL isTweakOwnFile(const char *p) {
-    if (!p) return NO;
-    return strstr(p, "qunartweak") || strstr(p, "/.qn_s") || strstr(p, "/qn_ok");
-}
-
 static int hook_stat(const char *p, struct stat *s) {
-    if (isTweakOwnFile(p)) return -1;
     if (isJailPath(p)) {
         if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
             if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
@@ -214,18 +207,8 @@ static int hook_fstat(int fd, struct stat *s) {
     return orig_fstat(fd, s);
 }
 
-static int (*orig_sandbox_check)(pid_t, const char *, int, const char *);
-static int hook_sandbox_check(pid_t pid, const char *op, int type, const char *path) {
-    if (type == 1 && path && isJailPath(path) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-        tlog(@"sandbox_check_jb", @{@"op": @(op ?: ""), @"p": @(path)});
-        gInTlog = 0;
-    }
-    return orig_sandbox_check(pid, op, type, path);
-}
-
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
-
 
 static char *(*orig_getenv)(const char *);
 static char *hook_getenv(const char *k) {
@@ -412,9 +395,8 @@ static void hookEnvDetect(void) {
     MH("stat64",   hook_stat64,   &orig_stat64);
     MH("lstat",    hook_lstat,    &orig_lstat);
     MH("lstat64",  hook_lstat64,  &orig_lstat64);
-    MH("fstat",         hook_fstat,         &orig_fstat);
-    MH("sandbox_check", hook_sandbox_check, &orig_sandbox_check);
-    MH("getenv",        hook_getenv,        &orig_getenv);
+    MH("fstat",    hook_fstat,    &orig_fstat);
+    MH("getenv",   hook_getenv,   &orig_getenv);
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
     MH("dlopen",   hook_dlopen,   &orig_dlopen);
@@ -464,5 +446,9 @@ void installBypassHooks(void) {
     installNetCaptureHooks();
     gStartTime = CFAbsoluteTimeGetCurrent();
     // v60 诊断：探测 xkjgaol 符号地址，用于 v61 hook 计算
+    void *xkjSym = dlsym(RTLD_DEFAULT, "xkjgaol");
+    tlog(@"xkj_sym", @{@"found": @(xkjSym != NULL),
+                        @"addr": [NSString stringWithFormat:@"%p", xkjSym],
+                        @"popup_off": [NSString stringWithFormat:@"%p", (char*)xkjSym + 8968112]});
     tlog(@"bypass_installed", nil);
 }

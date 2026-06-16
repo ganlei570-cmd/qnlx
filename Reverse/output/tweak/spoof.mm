@@ -88,12 +88,19 @@ static void logCFDataResult(CFTypeRef *result, NSString *key) {
 
 static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     NSString *key = kcQueryKey(q);
+    // key104 = GTS jailbreak status cache; return notFound → force fresh check every launch
     if (key && [key containsString:@"__gxsdk_reserved_key104__"]) {
+        tlog(@"kc_key104_cleared", @{@"key": key});
         if (result) *result = NULL;
-        tlog(@"kc_key104_not_found", @{@"key": key});
         return errSecItemNotFound;
     }
-    // spoof GI/GX key1 → notFound，强迫 GTS 无缓存路径
+    // key72 = GTS MD5 fingerprint cache; return notFound → force CC_MD5 recompute (we randomize it)
+    if (key && [key containsString:@"_key72__"]) {
+        tlog(@"kc_key72_cleared", @{@"key": key});
+        if (result) *result = NULL;
+        return errSecItemNotFound;
+    }
+    // GI/GX key1 → notFound，强迫 GTS 无缓存路径
     if (key && ([key containsString:@"_gikeychain_key1"] || [key containsString:@"_gxkeychain_key1"])) {
         tlog(@"kc_key1_spoofed", @{@"key": key});
         if (result) *result = NULL;

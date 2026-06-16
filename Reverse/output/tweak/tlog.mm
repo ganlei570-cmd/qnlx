@@ -36,25 +36,4 @@ static void tlog_local(NSString *event, NSDictionary *info) {
 
 extern "C" void tlog(NSString *event, NSDictionary *info) {
     tlog_local(event, info);
-
-    NSMutableDictionary *body = [NSMutableDictionary dictionary];
-    body[@"event"] = event ?: @"unknown";
-    body[@"src"]   = @"tweak";
-    body[@"idfv"]  = [[[UIDevice currentDevice] identifierForVendor] UUIDString] ?: @"";
-    body[@"ios"]   = [[UIDevice currentDevice] systemVersion] ?: @"";
-    if (info) [body addEntriesFromDictionary:info];
-
-    NSData *data = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
-    if (!data) return;
-
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:TLOG_URL]
-                                                       cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                                   timeoutInterval:8];
-    req.HTTPMethod = @"POST";
-    req.HTTPBody = data;
-    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        [[NSURLSession.sharedSession dataTaskWithRequest:req completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {}] resume];
-    });
 }
