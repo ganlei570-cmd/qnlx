@@ -68,6 +68,26 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
+// ── NSURLSession vcode 接口响应捕获 ─────────────────────────────
+%hook NSURLSession
+- (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)req completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))handler {
+    NSString *url = req.URL.absoluteString ?: @"";
+    if ([url containsString:@"vcode"] || [url containsString:@"sms"] || [url containsString:@"sendCode"]) {
+        tlog(@"vcode_req", @{@"url": url, @"method": req.HTTPMethod ?: @""});
+        void(^wrapped)(NSData *, NSURLResponse *, NSError *) = ^(NSData *data, NSURLResponse *resp, NSError *err) {
+            NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
+            NSString *body = data ? ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
+            NSString *errStr = err ? err.localizedDescription : @"nil";
+            tlog(@"vcode_resp", @{@"status": @(http.statusCode), @"body": [body substringToIndex:MIN(500, body.length)], @"err": errStr});
+            cloudLog(@"vcode_resp", @{@"url": url, @"status": @(http.statusCode), @"body": [body substringToIndex:MIN(500, body.length)], @"err": errStr, @"idfv": gIDFV ?: @""});
+            if (handler) handler(data, resp, err);
+        };
+        return %orig(req, wrapped);
+    }
+    return %orig;
+}
+%end
+
 // ── WKWebView 初始化 hook — 注入指纹伪造脚本 ────────────────────
 %hook WKWebView
 - (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)config {
@@ -185,6 +205,7 @@ static NSString *gCachedPhone = nil;
 - (void)setVcodeType:(id)type {
     if ([[type description] isEqualToString:@"12"]) type = @"1";
     tlog(@"vcode_type_bypass", @{@"v": [type description] ?: @"nil"});
+    cloudLog(@"vcode_type_bypass", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
     %orig;
 }
 %end
@@ -212,8 +233,12 @@ static NSString *gCachedPhone = nil;
     NSString *t = self.title ?: @"";
     NSString *m = self.message ?: @"";
     if ([t containsString:@"频繁"] || [m containsString:@"频繁"] ||
-        [t containsString:@"安全"] || [m containsString:@"安全"]) {
-        tlog(@"alert_freq", @{@"t": t, @"m": m, @"stk": [[NSThread callStackSymbols] componentsJoinedByString:@"|"]});
+        [t containsString:@"安全"] || [m containsString:@"安全"] ||
+        [t containsString:@"出错"] || [m containsString:@"出错"] ||
+        [t containsString:@"失败"] || [m containsString:@"失败"] ||
+        [t containsString:@"重试"] || [m containsString:@"重试"]) {
+        tlog(@"alert_err", @{@"t": t, @"m": m});
+        cloudLog(@"alert_err", @{@"t": t, @"m": m, @"idfv": gIDFV ?: @""});
     }
 }
 %end
