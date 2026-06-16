@@ -183,18 +183,7 @@ static NSString *gCachedPhone = nil;
 - (void)setVcodeType:(id)type {
     tlog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"cls": NSStringFromClass([type class]) ?: @"nil"});
     cloudLog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
-    id sms = type;
-    if ([type isKindOfClass:[NSString class]]) {
-        if ([@[@"voice",@"VOICE",@"voice_call",@"2",@"3",@"12"] containsObject:type]) sms = @"1";
-    } else if ([type isKindOfClass:[NSNumber class]]) {
-        NSInteger n = [(NSNumber *)type integerValue];
-        if (n == 2 || n == 3 || n == 12) sms = @(1);
-    }
-    if (sms != type) {
-        tlog(@"vcode_sms", @{@"was": [type description], @"now": [sms description]});
-        cloudLog(@"vcode_sms", @{@"was": [type description] ?: @"nil", @"now": [sms description] ?: @"nil", @"idfv": gIDFV ?: @""});
-    }
-    %orig(sms);
+    %orig;
 }
 %end
 
