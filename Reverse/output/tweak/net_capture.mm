@@ -74,6 +74,8 @@ static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLe
     return orig_SSLWrite(ctx, data, dataLen, processed);
 }
 
+static char kVcodeAccKey = 0;
+
 @interface QunarNetSpy : NSObject
 @property (nonatomic, strong) id real;
 @end
@@ -92,7 +94,14 @@ static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLe
 - (void)URLSession:(NSURLSession *)sess dataTask:(NSURLSessionDataTask *)t didReceiveData:(NSData *)d {
     @try {
         NSString *u = t.currentRequest.URL.absoluteString ?: @"";
-        if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"]) {
+        if ([u containsString:@"p_ucGetVcodeV2"]) {
+            NSMutableData *acc = objc_getAssociatedObject(t, &kVcodeAccKey);
+            if (!acc) {
+                acc = [NSMutableData data];
+                objc_setAssociatedObject(t, &kVcodeAccKey, acc, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
+            [acc appendData:d];
+        } else if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"]) {
             NSString *b = nil;
             NSData *gz = tryGunzip(d.bytes, d.length);
             if (gz) b = [[NSString alloc] initWithData:gz encoding:NSUTF8StringEncoding];
@@ -112,11 +121,20 @@ static OSStatus hook_SSLWrite(SSLContextRef ctx, const void *data, size_t dataLe
 - (void)URLSession:(NSURLSession *)sess task:(NSURLSessionTask *)t didCompleteWithError:(NSError *)e {
     @try {
         NSString *u = t.currentRequest.URL.absoluteString ?: @"";
-        if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"])
+        if ([u containsString:@"p_ucGetVcodeV2"]) {
+            NSMutableData *acc = objc_getAssociatedObject(t, &kVcodeAccKey);
+            NSString *str = acc ? ([[NSString alloc] initWithData:acc encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_data]";
+            tlog(@"vcode_resp", @{
+                @"len": @(acc.length),
+                @"str": str.length > 600 ? [str substringToIndex:600] : str,
+                @"err": e.localizedDescription ?: @""
+            });
+        } else if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"]) {
             tlog(@"resp_done", @{
                 @"u": u.length > 120 ? [u substringToIndex:120] : u,
                 @"e": e.localizedDescription ?: @""
             });
+        }
     } @catch(id e2) {}
     id r = self.real;
     if (r && [r respondsToSelector:_cmd])
