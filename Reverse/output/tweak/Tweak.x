@@ -181,8 +181,9 @@ static NSString *gCachedPhone = nil;
 
 %hook QnrSendVCodeParam
 - (void)setVcodeType:(id)type {
+    NSString *stk = [[NSThread callStackSymbols] componentsJoinedByString:@"|"];
     tlog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"cls": NSStringFromClass([type class]) ?: @"nil"});
-    cloudLog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    cloudLog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"stk": stk, @"idfv": gIDFV ?: @""});
     %orig;
 }
 %end
