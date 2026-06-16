@@ -68,19 +68,6 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
-// ── NSURLSessionDataTask resume 捕获（只写 tlog，不调 cloudLog 避免嵌套）──
-%hook NSURLSessionDataTask
-- (void)resume {
-    NSURLRequest *req = self.currentRequest;
-    NSString *url = req.URL.absoluteString ?: @"";
-    if ([url containsString:@"unar"] || [url containsString:@"qunar"]) {
-        NSData *body = req.HTTPBody;
-        NSString *bodyStr = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
-        tlog(@"task_resume", @{@"url": [url substringToIndex:MIN(200, url.length)], @"body": [bodyStr substringToIndex:MIN(500, bodyStr.length)]});
-    }
-    %orig;
-}
-%end
 
 // ── NSURLSession 请求+响应捕获（诊断用）────────────────────────
 %hook NSURLSession
