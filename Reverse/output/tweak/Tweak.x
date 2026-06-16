@@ -219,7 +219,7 @@ static NSString *gCachedPhone = nil;
     cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
     // 读取 success block 签名（诊断用，不调用）
     if (success) {
-        void **blk = (__bridge void **)success;
+        void **blk = (void **)(__bridge void *)success;
         void **desc = (void **)blk[4];
         if (desc) {
             const char *sig = (const char *)desc[2];
