@@ -239,6 +239,10 @@ static NSString *gCachedPhone = nil;
     %orig;
 }
 - (void)setUuid:(id)v {
+    if (!v || [[v description] isEqualToString:@""] || [[v description] isEqualToString:@"nil"]) {
+        v = [[NSUUID UUID] UUIDString];
+        cloudLog(@"uuid_injected", @{@"v": v, @"idfv": gIDFV ?: @""});
+    }
     cloudLog(@"param_uuid", @{@"v": [v description] ?: @"nil", @"idfv": gIDFV ?: @""});
     %orig;
 }
