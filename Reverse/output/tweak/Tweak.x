@@ -178,10 +178,10 @@ static NSString *gCachedPhone = nil;
     tlog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"cls": NSStringFromClass([type class]) ?: @"nil"});
     id sms = type;
     if ([type isKindOfClass:[NSString class]]) {
-        if ([@[@"voice",@"VOICE",@"voice_call",@"2",@"3"] containsObject:type]) sms = @"1";
+        if ([@[@"voice",@"VOICE",@"voice_call",@"2",@"3",@"12"] containsObject:type]) sms = @"11";
     } else if ([type isKindOfClass:[NSNumber class]]) {
         NSInteger n = [(NSNumber *)type integerValue];
-        if (n == 2 || n == 3) sms = @(1);
+        if (n == 2 || n == 3 || n == 12) sms = @"11";
     }
     if (sms != type) tlog(@"vcode_sms", @{@"was": [type description], @"now": [sms description]});
     %orig(sms);
