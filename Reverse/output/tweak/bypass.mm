@@ -43,6 +43,8 @@ static const char * const kHideDylibs[] = {
     "cycript", "dopamine", "procursus", ".fakelib", NULL
 };
 
+static int32_t gJailCheckActive = 1;
+
 static BOOL isJailPath(const char *p) {
     if (!p) return NO;
     if (!gJailCheckActive) return NO;
@@ -95,7 +97,6 @@ static const char *hook_class_getImageName(Class cls) {
 }
 
 static CFAbsoluteTime gStartTime = 0;
-static int32_t gJailCheckActive = 1;
 static int32_t gInTlog = 0;
 static int gDyldLogDone = 0;
 static int gImgNamesLogDone = 0;
