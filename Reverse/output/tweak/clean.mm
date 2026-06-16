@@ -53,12 +53,6 @@ static void clearQunarDefaults(void) {
     tlog(@"defaults_cleared", @{@"count": @(count)});
 }
 
-static BOOL isGTSItem(NSString *svc) {
-    if (!svc) return NO;
-    return [svc containsString:@"SDK_Service"] || [svc containsString:@"gxsdk"] ||
-           [svc containsString:@"gikeychain"] || [svc containsString:@"gxkeychain"];
-}
-
 static void deleteKCItem(id cls, NSDictionary *item) {
     NSMutableDictionary *d = [NSMutableDictionary dictionary];
     d[(__bridge id)kSecClass]           = cls;
@@ -73,7 +67,7 @@ static void deleteKCItem(id cls, NSDictionary *item) {
 static void clearQunarLoginKeychain(void) {
     NSArray *classes = @[(__bridge id)kSecClassGenericPassword,
                          (__bridge id)kSecClassInternetPassword];
-    int count = 0, skipped = 0;
+    int count = 0;
     for (id cls in classes) {
         NSDictionary *q = @{
             (__bridge id)kSecClass:            cls,
@@ -86,12 +80,11 @@ static void clearQunarLoginKeychain(void) {
         NSArray *items = (CFGetTypeID(raw) == CFArrayGetTypeID())
             ? (__bridge_transfer NSArray *)raw : @[(__bridge_transfer id)raw];
         for (NSDictionary *item in items) {
-            if (isGTSItem(item[(__bridge id)kSecAttrService])) { skipped++; continue; }
             deleteKCItem(cls, item);
             count++;
         }
     }
-    tlog(@"kc_login_cleared", @{@"count": @(count), @"skipped": @(skipped)});
+    tlog(@"kc_login_cleared", @{@"count": @(count)});
 }
 
 static void handleClearSafari(CFNotificationCenterRef c, void *o,
@@ -114,6 +107,10 @@ void clearQunarLoginState(void) {
         NSString *path = [lib stringByAppendingPathComponent:sub];
         [fm removeItemAtPath:path error:nil];
     }
+
+    NSString *gtsSqlite = [lib stringByAppendingPathComponent:@"gtRoot/GtkDB/gtsdk.sqlite"];
+    if ([fm removeItemAtPath:gtsSqlite error:nil])
+        tlog(@"gts_sqlite_cleared", nil);
 
     NSString *prefsBase = @"/var/mobile/Library/Preferences";
     for (NSString *f in [fm contentsOfDirectoryAtPath:prefsBase error:nil]) {
