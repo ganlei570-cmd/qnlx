@@ -218,10 +218,17 @@ static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
         if ([u containsString:@"qunar"]) {
             NSData *body = req.HTTPBody;
             if ([u containsString:@"p_ucGetVcodeV2"]) {
-                // capture call stack to find the ObjC method that sets voice/sms type
-                NSArray *stk = [NSThread callStackSymbols];
-                for (NSUInteger i = 0; i < MIN(stk.count, 30); i++)
-                    tlog(@"vcode_stk", @{@"i": @(i), @"f": stk[i]});
+                NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
+                NSMutableString *hexReq = [NSMutableString string];
+                const uint8_t *rb = (const uint8_t *)body.bytes;
+                for (NSUInteger hi = 0; hi < MIN(body.length, 256); hi++)
+                    [hexReq appendFormat:@"%02x", rb[hi]];
+                tlog(@"vcode_req", @{
+                    @"u": u.length > 200 ? [u substringToIndex:200] : u,
+                    @"len": @(body.length),
+                    @"hex": hexReq,
+                    @"str": bs.length > 800 ? [bs substringToIndex:800] : bs
+                });
             } else {
                 NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
                 tlog(@"req_del", @{
