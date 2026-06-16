@@ -335,9 +335,26 @@ static CCCryptorStatus hook_CCCrypt(CCOperation op, CCAlgorithm alg, CCOptions o
     return r;
 }
 
+typedef CCCryptorStatus (*CCCryptorFinalFn)(CCCryptorRef, void *, size_t, size_t *);
+static CCCryptorFinalFn orig_CCCryptorFinal;
+static CCCryptorStatus hook_CCCryptorFinal(CCCryptorRef ref, void *dataOut, size_t dataOutAvail, size_t *dataOutMoved) {
+    CCCryptorStatus r = orig_CCCryptorFinal(ref, dataOut, dataOutAvail, dataOutMoved);
+    if (r != kCCSuccess || !dataOut || !dataOutMoved || *dataOutMoved < 2) return r;
+    @try {
+        size_t n = MIN(*dataOutMoved, 500);
+        NSMutableString *hex = [NSMutableString stringWithCapacity:32];
+        for (size_t i = 0; i < MIN(n, 16); i++) [hex appendFormat:@"%02x", ((const uint8_t *)dataOut)[i]];
+        NSString *txt = [[NSString alloc] initWithBytes:dataOut length:n encoding:NSUTF8StringEncoding];
+        tlog(@"cryptf", @{@"len": @(*dataOutMoved), @"hdr": hex, @"txt": txt ?: @"[bin]"});
+    } @catch(id e) {}
+    return r;
+}
+
 void installNetCaptureHooks(void) {
     void *fnc = dlsym(RTLD_DEFAULT, "CCCrypt");
     if (fnc) MSHookFunction(fnc, (void *)hook_CCCrypt, (void **)&orig_CCCrypt);
+    void *fnf = dlsym(RTLD_DEFAULT, "CCCryptorFinal");
+    if (fnf) MSHookFunction(fnf, (void *)hook_CCCryptorFinal, (void **)&orig_CCCryptorFinal);
     void *fnr = dlsym(RTLD_DEFAULT, "SSLRead");
     if (fnr) MSHookFunction(fnr, (void *)hook_SSLRead, (void **)&orig_SSLRead);
     void *fnw = dlsym(RTLD_DEFAULT, "SSLWrite");
