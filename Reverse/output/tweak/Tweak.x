@@ -129,8 +129,6 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 @interface QnrSendVCodeParam : NSObject
 @end
 
-@interface HYRiskyRequestVC : UIViewController
-@end
 
 static NSString *gCachedPhone = nil;
 
@@ -185,11 +183,6 @@ static NSString *gCachedPhone = nil;
     }
     if (sms != type) tlog(@"vcode_sms", @{@"was": [type description], @"now": [sms description]});
     %orig(sms);
-}
-- (void)setRiskVerifyToken:(id)token {
-    tlog(@"risk_token", @{@"v": [token description] ?: @"nil", @"len": @([[token description] length])});
-    // 置 nil — 阻止高风险 token 传给服务器
-    %orig(nil);
 }
 %end
 
@@ -288,63 +281,6 @@ static NSString *gCachedPhone = nil;
 %end
 %end
 
-// ── GTS 风险控制 bypass ─────────────────────────────────────────
-typedef void (^QNCacheRiskCB)(NSArray *);
-
-static void tryRespSuccess(id response, NSDictionary *data) {
-    for (NSString *selStr in @[@"sendResponse:", @"resolve:", @"success:"]) {
-        SEL s = NSSelectorFromString(selStr);
-        if ([response respondsToSelector:s]) {
-            ((void (*)(id, SEL, id))objc_msgSend)(response, s, data);
-            tlog(@"rctl_resp_ok", @{@"sel": selStr});
-            return;
-        }
-    }
-    tlog(@"rctl_resp_unkn", @{@"cls": NSStringFromClass([response class])});
-}
-
-%group GRiskControl
-
-%hook QRCTCacheRiskControl
-- (void)cacheRiskControl:(id)params resultCallback:(QNCacheRiskCB)callback {
-    tlog(@"rctl_bypass", @{@"m": @"cacheRiskControl:resultCallback:"});
-    if (callback) callback(@[NSNull.null, @{@"code": @0, @"bizState": @0}]);
-}
-%end
-
-%hook QRCTRiskControlInfo
-- (void)getRiskControlInfo:(QNCacheRiskCB)callback {
-    tlog(@"rctl_bypass", @{@"m": @"getRiskControlInfo:"});
-    if (callback) callback(@[NSNull.null, @{@"code": @0, @"hasRisk": @NO}]);
-}
-%end
-
-%hook HYRiskControlPlugin
-- (void)riskControl:(id)params response:(id)response {
-    tlog(@"rctl_bypass", @{@"m": @"riskControl:response:"});
-    tryRespSuccess(response, @{@"code": @200, @"bizState": @0});
-}
-- (void)cacheRiskControl:(id)params response:(id)response {
-    tlog(@"rctl_bypass", @{@"m": @"cacheRiskControl:response:"});
-    tryRespSuccess(response, @{@"code": @200, @"bizState": @0});
-}
-%end
-
-%hook QNPRiskInfoPlugin
-- (void)getRiskInfo:(id)params response:(id)response {
-    tlog(@"rctl_bypass", @{@"m": @"getRiskInfo:response:"});
-    tryRespSuccess(response, @{@"code": @200});
-}
-%end
-
-%hook HYRiskyRequestVC
-- (void)viewDidLoad {
-    tlog(@"risky_vc_load", nil);
-    %orig;
-}
-%end
-
-%end // GRiskControl
 
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
@@ -370,8 +306,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             tlog(@"init_telephony_done", nil);
             %init(GJailbreakProbe);
             tlog(@"init_jbprobe_done", nil);
-            %init(GRiskControl);
-            tlog(@"init_riskctl_done", nil);
+
         }
     }
 }
