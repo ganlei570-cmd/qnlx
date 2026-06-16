@@ -170,30 +170,6 @@ static int hook_access(const char *p, int m) {
 static FILE *(*orig_fopen)(const char *, const char *);
 static FILE *hook_fopen(const char *p, const char *m) { return isJailPath(p) ? NULL : orig_fopen(p, m); }
 
-static int (*orig_open)(const char *, int, ...);
-static int hook_open(const char *p, int f, ...) {
-    if (isJailPath(p) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-        tlog(@"open_jb", @{@"p": @(p ?: "")});
-        gInTlog = 0;
-    }
-    if (f & O_CREAT) {
-        va_list ap; va_start(ap, f); mode_t m = va_arg(ap, int); va_end(ap);
-        return orig_open(p, f, m);
-    }
-    return orig_open(p, f);
-}
-static int (*orig_openat)(int, const char *, int, ...);
-static int hook_openat(int d, const char *p, int f, ...) {
-    if (isJailPath(p) && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-        tlog(@"openat_jb", @{@"p": @(p ?: "")});
-        gInTlog = 0;
-    }
-    if (f & O_CREAT) {
-        va_list ap; va_start(ap, f); mode_t m = va_arg(ap, int); va_end(ap);
-        return orig_openat(d, p, f, m);
-    }
-    return orig_openat(d, p, f);
-}
 
 static int (*orig_stat)(const char *, struct stat *);
 static int hook_stat(const char *p, struct stat *s) {
@@ -425,9 +401,6 @@ static void hookEnvDetect(void) {
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
     MH("dlopen",  hook_dlopen,  &orig_dlopen);
-    // open/openat hook 导致闪退（arm64e varargs ABI 问题），暂时禁用
-    // MH("open",    hook_open,    &orig_open);
-    // MH("openat",  hook_openat,  &orig_openat);
 }
 
 // SSL pinning bypass — allows mitmproxy MITM
