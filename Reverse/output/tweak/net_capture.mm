@@ -324,12 +324,13 @@ static CCCryptorStatus hook_CCCrypt(CCOperation op, CCAlgorithm alg, CCOptions o
     CCCryptorStatus r = orig_CCCrypt(op, alg, opts, key, keyLen, iv,
                                      dataIn, dataInLen, dataOut, dataOutAvail, dataOutMoved);
     if (r != kCCSuccess || op != kCCDecrypt || !dataOut || !dataOutMoved || *dataOutMoved < 2) return r;
-    if (((const uint8_t *)dataOut)[0] != '{') return r;
     @try {
-        NSString *s = [[NSString alloc] initWithBytes:dataOut
-                                               length:MIN(*dataOutMoved, 500)
-                                             encoding:NSUTF8StringEncoding];
-        if (s) tlog(@"crypt_plain", @{@"j": s});
+        const uint8_t *b = (const uint8_t *)dataOut;
+        size_t n = MIN(*dataOutMoved, 500);
+        NSMutableString *hex = [NSMutableString stringWithCapacity:32];
+        for (size_t i = 0; i < MIN(n, 16); i++) [hex appendFormat:@"%02x", b[i]];
+        NSString *txt = [[NSString alloc] initWithBytes:dataOut length:n encoding:NSUTF8StringEncoding];
+        tlog(@"crypt_dec", @{@"len": @(*dataOutMoved), @"hdr": hex, @"txt": txt ?: @"[bin]"});
     } @catch(id e) {}
     return r;
 }
