@@ -200,26 +200,6 @@ static int hook_lstat(const char *p, struct stat *s) { return isJailPath(p) ? -1
 static int (*orig_lstat64)(const char *, void *);
 static int hook_lstat64(const char *p, void *s) { return isJailPath(p) ? -1 : orig_lstat64(p, s); }
 
-static ssize_t (*orig_readlink)(const char *, char *, size_t);
-static ssize_t hook_readlink(const char *p, char *buf, size_t sz) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
-    return orig_readlink(p, buf, sz);
-}
-static int (*orig_open)(const char *, int, ...);
-static int hook_open(const char *p, int flags, ...) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
-    va_list ap; va_start(ap, flags);
-    int mode = va_arg(ap, int); va_end(ap);
-    return orig_open(p, flags, mode);
-}
-static int (*orig_openat)(int, const char *, int, ...);
-static int hook_openat(int fd, const char *p, int flags, ...) {
-    if (p && isJailPath(p)) { errno = ENOENT; return -1; }
-    va_list ap; va_start(ap, flags);
-    int mode = va_arg(ap, int); va_end(ap);
-    return orig_openat(fd, p, flags, mode);
-}
-
 static int (*orig_fstat)(int, struct stat *);
 static int hook_fstat(int fd, struct stat *s) {
     char path[PATH_MAX] = {0};
@@ -243,13 +223,7 @@ static int (*orig_system)(const char *);
 static int hook_system(const char *c) { return 0; }
 
 static void *(*orig_dlopen)(const char *, int);
-static void *hook_dlopen(const char *p, int f) {
-    if (isInjDylib(p)) {
-        tlog(@"dlopen_blocked", @{@"p": @(p ?: "")});
-        return NULL;
-    }
-    return orig_dlopen(p, f);
-}
+static void *hook_dlopen(const char *p, int f) { return isInjDylib(p) ? NULL : orig_dlopen(p, f); }
 
 static int (*orig_sysctlbyname)(const char *, void *, size_t *, void *, size_t);
 static int hook_sysctlbyname(const char *n, void *o, size_t *sz, void *ne, size_t nsz) {
@@ -422,9 +396,6 @@ static void hookEnvDetect(void) {
     MH("lstat",    hook_lstat,    &orig_lstat);
     MH("lstat64",  hook_lstat64,  &orig_lstat64);
     MH("fstat",    hook_fstat,    &orig_fstat);
-    MH("readlink", hook_readlink, &orig_readlink);
-    MH("open",     hook_open,     &orig_open);
-    MH("openat",   hook_openat,   &orig_openat);
     MH("getenv",   hook_getenv,   &orig_getenv);
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
