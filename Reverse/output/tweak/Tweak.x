@@ -95,29 +95,6 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
-// ── NSURLConnection 响应捕获（vcode 请求可能走此路径）────────────
-%hook NSURLConnection
-+ (void)sendAsynchronousRequest:(NSURLRequest *)req queue:(NSOperationQueue *)q completionHandler:(void(^)(NSURLResponse *, NSData *, NSError *))handler {
-    if (!handler) { %orig; return; }
-    NSString *url = req.URL.absoluteString ?: @"";
-    BOOL isQunar = [url containsString:@"unar"] || [url containsString:@"qunar"];
-    if (isQunar) {
-        NSData *reqBody = req.HTTPBody;
-        NSString *reqStr = reqBody ? ([[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
-        cloudLog(@"conn_req", @{@"url": url, @"req": [reqStr substringToIndex:MIN(500, reqStr.length)], @"idfv": gIDFV ?: @""});
-    }
-    void(^wrapped)(NSURLResponse *, NSData *, NSError *) = ^(NSURLResponse *resp, NSData *data, NSError *err) {
-        NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
-        NSInteger status = http.statusCode;
-        NSString *body = data ? ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
-        if (isQunar || status < 200 || status >= 300 || err) {
-            cloudLog(@"conn_resp", @{@"url": url, @"status": @(status), @"body": [body substringToIndex:MIN(300, body.length)], @"idfv": gIDFV ?: @""});
-        }
-        if (handler) handler(resp, data, err);
-    };
-    %orig(req, q, wrapped);
-}
-%end
 
 // ── WKWebView 初始化 hook — 注入指纹伪造脚本 ────────────────────
 %hook WKWebView
@@ -240,10 +217,15 @@ static NSString *gCachedPhone = nil;
 %hook QBusinessLineVCodeManager
 + (void)sendVcodeWithParam:(id)param fromBusinessLine:(NSString *)bl successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr afterSendRequestCallBack:(id)after {
     cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
-    id wrappedSuccess = success ? [^(id result) {
-        cloudLog(@"send_vcode2_success", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
-        ((void(^)(id, id))success)(result, nil);
-    } copy] : nil;
+    // 读取 success block 签名（诊断用，不调用）
+    if (success) {
+        void **blk = (__bridge void **)success;
+        void **desc = (void **)blk[4];
+        if (desc) {
+            const char *sig = (const char *)desc[2];
+            cloudLog(@"success_sig", @{@"sig": sig ? @(sig) : @"nil", @"idfv": gIDFV?:@""});
+        }
+    }
     id wrappedFail = fail ? [^(id result) {
         cloudLog(@"send_vcode2_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))fail)(result);
@@ -252,7 +234,7 @@ static NSString *gCachedPhone = nil;
         cloudLog(@"send_vcode2_neterr", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))netErr)(result);
     } copy] : nil;
-    %orig(param, bl, wrappedSuccess, wrappedFail, wrappedNet, after);
+    %orig(param, bl, success, wrappedFail, wrappedNet, after);
 }
 %end
 
