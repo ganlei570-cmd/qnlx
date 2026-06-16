@@ -243,7 +243,13 @@ static int (*orig_system)(const char *);
 static int hook_system(const char *c) { return 0; }
 
 static void *(*orig_dlopen)(const char *, int);
-static void *hook_dlopen(const char *p, int f) { return isInjDylib(p) ? NULL : orig_dlopen(p, f); }
+static void *hook_dlopen(const char *p, int f) {
+    if (isInjDylib(p)) {
+        tlog(@"dlopen_blocked", @{@"p": @(p ?: "")});
+        return NULL;
+    }
+    return orig_dlopen(p, f);
+}
 
 static int (*orig_sysctlbyname)(const char *, void *, size_t *, void *, size_t);
 static int hook_sysctlbyname(const char *n, void *o, size_t *sz, void *ne, size_t nsz) {
