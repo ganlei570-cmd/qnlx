@@ -20,7 +20,6 @@
 #import <CommonCrypto/CommonDigest.h>
 #import <mach-o/dyld_images.h>
 #import <CommonCrypto/CommonDigest.h>
-#include <sys/mount.h>
 extern char **environ;
 
 static const char * const kJailPaths[] = {
@@ -236,24 +235,6 @@ static int hook_openat(int dirfd, const char *p, int flags, int mode) {
     return orig_openat(dirfd, p, flags, mode);
 }
 
-static int (*orig_statfs)(const char *, struct statfs *);
-static int hook_statfs(const char *p, struct statfs *buf) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
-    return orig_statfs(p, buf);
-}
-
-static DIR *(*orig_opendir)(const char *);
-static DIR *hook_opendir(const char *p) {
-    if (isJailPath(p)) { errno = ENOENT; return NULL; }
-    return orig_opendir(p);
-}
-
-static int (*orig_faccessat)(int, const char *, int, int);
-static int hook_faccessat(int dirfd, const char *p, int mode, int flags) {
-    if (isJailPath(p)) { errno = ENOENT; return -1; }
-    return orig_faccessat(dirfd, p, mode, flags);
-}
-
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
 
@@ -449,9 +430,6 @@ static void hookEnvDetect(void) {
     MH("dlopen",     hook_dlopen,     &orig_dlopen);
     MH("open",       hook_open,       &orig_open);
     MH("openat",     hook_openat,     &orig_openat);
-    MH("statfs",     hook_statfs,     &orig_statfs);
-    MH("opendir",    hook_opendir,    &orig_opendir);
-    MH("faccessat",  hook_faccessat,  &orig_faccessat);
 }
 
 // SSL pinning bypass — allows mitmproxy MITM
