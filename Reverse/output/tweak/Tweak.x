@@ -68,10 +68,16 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
-// ── NSURLSession 所有非2xx响应捕获（诊断用）────────────────────
+// ── NSURLSession 请求+响应捕获（诊断用）────────────────────────
 %hook NSURLSession
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)req completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))handler {
     NSString *url = req.URL.absoluteString ?: @"";
+    BOOL isQunar = [url containsString:@"unar"] || [url containsString:@"qunar"];
+    if (isQunar) {
+        NSData *reqBody = req.HTTPBody;
+        NSString *reqStr = reqBody ? ([[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
+        cloudLog(@"http_req", @{@"url": url, @"req": [reqStr substringToIndex:MIN(500, reqStr.length)], @"idfv": gIDFV ?: @""});
+    }
     void(^wrapped)(NSData *, NSURLResponse *, NSError *) = ^(NSData *data, NSURLResponse *resp, NSError *err) {
         NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
         NSInteger status = http.statusCode;
@@ -80,13 +86,35 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
         if (status < 200 || status >= 300 || err) {
             tlog(@"http_err", @{@"url": url, @"status": @(status), @"body": [body substringToIndex:MIN(300, body.length)], @"err": errStr});
             cloudLog(@"http_err", @{@"url": url, @"status": @(status), @"body": [body substringToIndex:MIN(300, body.length)], @"err": errStr, @"idfv": gIDFV ?: @""});
-        } else if ([url containsString:@"unar"] || [url containsString:@"qunar"]) {
-            // 记录去哪儿接口成功响应（含业务错误码）
+        } else if (isQunar) {
             cloudLog(@"http_ok", @{@"url": url, @"body": [body substringToIndex:MIN(300, body.length)], @"idfv": gIDFV ?: @""});
         }
         if (handler) handler(data, resp, err);
     };
     return %orig(req, wrapped);
+}
+%end
+
+// ── NSURLConnection 响应捕获（vcode 请求可能走此路径）────────────
+%hook NSURLConnection
++ (void)sendAsynchronousRequest:(NSURLRequest *)req queue:(NSOperationQueue *)q completionHandler:(void(^)(NSURLResponse *, NSData *, NSError *))handler {
+    NSString *url = req.URL.absoluteString ?: @"";
+    BOOL isQunar = [url containsString:@"unar"] || [url containsString:@"qunar"];
+    if (isQunar) {
+        NSData *reqBody = req.HTTPBody;
+        NSString *reqStr = reqBody ? ([[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
+        cloudLog(@"conn_req", @{@"url": url, @"req": [reqStr substringToIndex:MIN(500, reqStr.length)], @"idfv": gIDFV ?: @""});
+    }
+    void(^wrapped)(NSURLResponse *, NSData *, NSError *) = ^(NSURLResponse *resp, NSData *data, NSError *err) {
+        NSHTTPURLResponse *http = (NSHTTPURLResponse *)resp;
+        NSInteger status = http.statusCode;
+        NSString *body = data ? ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
+        if (isQunar || status < 200 || status >= 300 || err) {
+            cloudLog(@"conn_resp", @{@"url": url, @"status": @(status), @"body": [body substringToIndex:MIN(300, body.length)], @"idfv": gIDFV ?: @""});
+        }
+        if (handler) handler(resp, data, err);
+    };
+    %orig(req, q, wrapped);
 }
 %end
 
@@ -211,6 +239,10 @@ static NSString *gCachedPhone = nil;
 %hook QBusinessLineVCodeManager
 + (void)sendVcodeWithParam:(id)param fromBusinessLine:(NSString *)bl successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr afterSendRequestCallBack:(id)after {
     cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
+    id wrappedSuccess = success ? [^(id result) {
+        cloudLog(@"send_vcode2_success", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
+        ((void(^)(id))success)(result);
+    } copy] : nil;
     id wrappedFail = fail ? [^(id result) {
         cloudLog(@"send_vcode2_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))fail)(result);
@@ -219,7 +251,7 @@ static NSString *gCachedPhone = nil;
         cloudLog(@"send_vcode2_neterr", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))netErr)(result);
     } copy] : nil;
-    %orig(param, bl, success, wrappedFail, wrappedNet, after);
+    %orig(param, bl, wrappedSuccess, wrappedFail, wrappedNet, after);
 }
 %end
 
