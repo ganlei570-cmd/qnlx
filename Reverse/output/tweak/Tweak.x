@@ -230,6 +230,22 @@ static NSString *gCachedPhone = nil;
     cloudLog(@"vcode_type_bypass", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
     %orig;
 }
+- (void)setPhone:(id)v {
+    cloudLog(@"param_phone", @{@"v": [v description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    %orig;
+}
+- (void)setPrenum:(id)v {
+    cloudLog(@"param_prenum", @{@"v": [v description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    %orig;
+}
+- (void)setUuid:(id)v {
+    cloudLog(@"param_uuid", @{@"v": [v description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    %orig;
+}
+- (void)setSmsType:(id)v {
+    cloudLog(@"param_smstype", @{@"v": [v description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    %orig;
+}
 %end
 
 %hook QComVerifyLoginView
