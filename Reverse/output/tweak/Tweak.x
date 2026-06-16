@@ -68,7 +68,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
-// ── NSURLSessionDataTask resume 捕获（delegate 模式请求）─────────
+// ── NSURLSessionDataTask resume 捕获（只写 tlog，不调 cloudLog 避免嵌套）──
 %hook NSURLSessionDataTask
 - (void)resume {
     NSURLRequest *req = self.currentRequest;
@@ -76,7 +76,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
     if ([url containsString:@"unar"] || [url containsString:@"qunar"]) {
         NSData *body = req.HTTPBody;
         NSString *bodyStr = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
-        cloudLog(@"task_resume", @{@"url": url, @"body": [bodyStr substringToIndex:MIN(500, bodyStr.length)], @"idfv": gIDFV ?: @""});
+        tlog(@"task_resume", @{@"url": [url substringToIndex:MIN(200, url.length)], @"body": [bodyStr substringToIndex:MIN(500, bodyStr.length)]});
     }
     %orig;
 }
@@ -231,11 +231,6 @@ static NSString *gCachedPhone = nil;
 %hook QBusinessLineVCodeManager
 + (void)sendVcodeWithParam:(id)param fromBusinessLine:(NSString *)bl successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr afterSendRequestCallBack:(id)after {
     cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
-    id wrappedSuccess = success ? [^(id result) {
-        tlog(@"send_vcode2_success", @{@"r": [result description] ?: @"nil"});
-        cloudLog(@"send_vcode2_success", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
-        ((void(^)(id))success)(result);
-    } copy] : nil;
     id wrappedFail = fail ? [^(id result) {
         cloudLog(@"send_vcode2_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))fail)(result);
@@ -244,7 +239,7 @@ static NSString *gCachedPhone = nil;
         cloudLog(@"send_vcode2_neterr", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))netErr)(result);
     } copy] : nil;
-    %orig(param, bl, wrappedSuccess, wrappedFail, wrappedNet, after);
+    %orig(param, bl, success, wrappedFail, wrappedNet, after);
 }
 %end
 
