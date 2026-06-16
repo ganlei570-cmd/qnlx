@@ -14,7 +14,7 @@ static NSURLSession *cloudSess(void) {
     return gSess;
 }
 
-void clog(NSString *event, NSDictionary *data) {
+void cloudLog(NSString *event, NSDictionary *data) {
     NSMutableDictionary *p = [NSMutableDictionary dictionaryWithDictionary:data ?: @{}];
     p[@"event"] = event ?: @"?";
     p[@"src"] = @"tweak";

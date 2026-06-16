@@ -142,7 +142,7 @@ static NSString *gCachedPhone = nil;
 %hook QSMSCodeLoginVC
 - (void)getSmsCodeClick {
     tlog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"m":@"getSmsCodeClick"});
-    clog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"idfv":gIDFV?:@""});
+    cloudLog(@"btn_click", @{@"c":@"QSMSCodeLoginVC",@"idfv":gIDFV?:@""});
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         unsigned int mc = 0;
@@ -182,7 +182,7 @@ static NSString *gCachedPhone = nil;
 %hook QnrSendVCodeParam
 - (void)setVcodeType:(id)type {
     tlog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"cls": NSStringFromClass([type class]) ?: @"nil"});
-    clog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    cloudLog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
     id sms = type;
     if ([type isKindOfClass:[NSString class]]) {
         if ([@[@"voice",@"VOICE",@"voice_call",@"2",@"3",@"12"] containsObject:type]) sms = @"1";
@@ -192,7 +192,7 @@ static NSString *gCachedPhone = nil;
     }
     if (sms != type) {
         tlog(@"vcode_sms", @{@"was": [type description], @"now": [sms description]});
-        clog(@"vcode_sms", @{@"was": [type description] ?: @"nil", @"now": [sms description] ?: @"nil", @"idfv": gIDFV ?: @""});
+        cloudLog(@"vcode_sms", @{@"was": [type description] ?: @"nil", @"now": [sms description] ?: @"nil", @"idfv": gIDFV ?: @""});
     }
     %orig(sms);
 }
@@ -313,7 +313,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 %hook QRCTCacheRiskControl
 - (void)cacheRiskControl:(id)params resultCallback:(QNCacheRiskCB)callback {
     tlog(@"rctl_bypass", @{@"m": @"cacheRiskControl:resultCallback:"});
-    clog(@"rctl_bypass", @{@"m": @"cacheRiskControl", @"idfv": gIDFV ?: @""});
+    cloudLog(@"rctl_bypass", @{@"m": @"cacheRiskControl", @"idfv": gIDFV ?: @""});
     if (callback) callback(@[NSNull.null, @{@"code": @0, @"bizState": @0}]);
 }
 %end
@@ -346,7 +346,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 %hook HYRiskyRequestVC
 - (void)viewDidLoad {
     tlog(@"risky_vc_load", nil);
-    clog(@"risky_vc_load", @{@"idfv": gIDFV ?: @""});
+    cloudLog(@"risky_vc_load", @{@"idfv": gIDFV ?: @""});
     %orig;
 }
 %end
@@ -357,7 +357,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 %hook RiskAndPwdInfoModel
 - (void)setRiskVerifyToken:(id)token {
     tlog(@"risk_model_set", @{@"v": [token description] ?: @"nil"});
-    clog(@"risk_model_set", @{@"v": [token description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    cloudLog(@"risk_model_set", @{@"v": [token description] ?: @"nil", @"idfv": gIDFV ?: @""});
     %orig;
 }
 %end
@@ -378,7 +378,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             initCleanHooks();
             %init;
             tlog(@"init_main_done", nil);
-            clog(@"init_done", @{@"idfv": gIDFV ?: @""});
+            cloudLog(@"init_done", @{@"idfv": gIDFV ?: @""});
             dlopen("/System/Library/Frameworks/AdSupport.framework/AdSupport", RTLD_NOW);
             %init(GAdSupport);
             tlog(@"init_adsupport_done", nil);

@@ -1,4 +1,4 @@
 #pragma once
 #import <Foundation/Foundation.h>
 
-void clog(NSString *event, NSDictionary *data);
+void cloudLog(NSString *event, NSDictionary *data);
