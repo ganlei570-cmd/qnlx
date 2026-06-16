@@ -181,11 +181,43 @@ static NSString *gCachedPhone = nil;
 }
 %end
 
+static NSString *findObjcMethodForAddr(uintptr_t addr) {
+    unsigned int cnt = 0;
+    Class *all = objc_copyClassList(&cnt);
+    NSString *best = nil;
+    uintptr_t bestDist = UINTPTR_MAX;
+    for (unsigned int i = 0; i < cnt; i++) {
+        unsigned int mc = 0;
+        Method *methods = class_copyMethodList(all[i], &mc);
+        for (unsigned int j = 0; j < mc; j++) {
+            uintptr_t imp = (uintptr_t)method_getImplementation(methods[j]);
+            if (imp <= addr && addr - imp < bestDist && addr - imp < 0x4000) {
+                bestDist = addr - imp;
+                best = [NSString stringWithFormat:@"%@.%@ (+%lu)",
+                    NSStringFromClass(all[i]),
+                    NSStringFromSelector(method_getName(methods[j])),
+                    (unsigned long)bestDist];
+            }
+        }
+        free(methods);
+    }
+    free(all);
+    return best ?: @"not found";
+}
+
 %hook QnrSendVCodeParam
 - (void)setVcodeType:(id)type {
-    NSString *stk = [[NSThread callStackSymbols] componentsJoinedByString:@"|"];
+    NSArray *stk = [NSThread callStackReturnAddresses];
     tlog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"cls": NSStringFromClass([type class]) ?: @"nil"});
-    cloudLog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"stk": stk, @"idfv": gIDFV ?: @""});
+    if ([[type description] isEqualToString:@"12"] && stk.count > 4) {
+        uintptr_t f4 = [stk[4] unsignedIntegerValue];
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+            NSString *method = findObjcMethodForAddr(f4);
+            cloudLog(@"frame4_method", @{@"addr": [NSString stringWithFormat:@"%#lx", f4], @"method": method, @"idfv": gIDFV ?: @""});
+        });
+    }
+    NSString *stkStr = [[NSThread callStackSymbols] componentsJoinedByString:@"|"];
+    cloudLog(@"vcode_type", @{@"v": [type description] ?: @"nil", @"stk": stkStr, @"idfv": gIDFV ?: @""});
     %orig;
 }
 %end
