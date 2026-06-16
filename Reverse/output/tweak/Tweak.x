@@ -366,6 +366,23 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
+// ── 诊断：GTS 越狱检测通知路径（只读）──────────────────────────────
+%hook NSException
++ (NSException *)exceptionWithName:(NSString *)name reason:(NSString *)reason userInfo:(id)info {
+    if ([name isEqualToString:@"SendEventException"])
+        cloudLog(@"gts_jb_exception", @{@"name": name ?: @"", @"reason": reason ?: @"", @"idfv": gIDFV ?: @""});
+    return %orig;
+}
+%end
+
+%hook CKCrashReporter
+- (void)recordCustomCrashForUserInfoWithException:(id)exception {
+    NSString *name = [exception respondsToSelector:@selector(name)] ? [exception name] : @"?";
+    cloudLog(@"ck_crash_report", @{@"exc_name": name, @"idfv": gIDFV ?: @""});
+    %orig;
+}
+%end
+
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
     @autoreleasepool {
