@@ -207,34 +207,6 @@ static int hook_fstat(int fd, struct stat *s) {
     return orig_fstat(fd, s);
 }
 
-static int (*orig_open)(const char *, int, int);
-static int hook_open(const char *p, int flags, int mode) {
-    if (isJailPath(p)) {
-        if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
-            if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-                tlog(@"open_blocked", @{@"p": @(p)});
-                gInTlog = 0;
-            }
-        }
-        errno = ENOENT; return -1;
-    }
-    return orig_open(p, flags, mode);
-}
-
-static int (*orig_openat)(int, const char *, int, int);
-static int hook_openat(int dirfd, const char *p, int flags, int mode) {
-    if (isJailPath(p)) {
-        if (!gInTlog && gStartTime > 0 && (CFAbsoluteTimeGetCurrent() - gStartTime) < 3.0) {
-            if (__sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
-                tlog(@"openat_blocked", @{@"p": @(p)});
-                gInTlog = 0;
-            }
-        }
-        errno = ENOENT; return -1;
-    }
-    return orig_openat(dirfd, p, flags, mode);
-}
-
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
 
@@ -428,8 +400,6 @@ static void hookEnvDetect(void) {
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
     MH("dlopen",     hook_dlopen,     &orig_dlopen);
-    MH("open",       hook_open,       &orig_open);
-    MH("openat",     hook_openat,     &orig_openat);
 }
 
 // SSL pinning bypass — allows mitmproxy MITM
