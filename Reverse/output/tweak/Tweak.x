@@ -152,6 +152,10 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 @interface QnrSendVCodeParam : NSObject
 @end
 
+@interface QLoginRegisterManager : NSObject
+- (void)sendVcodeWithPrenum:(NSString *)prenum phone:(NSString *)phone vcodeType:(NSString *)vcodeType smsType:(NSString *)smsType uuid:(NSString *)uuid successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr;
+@end
+
 @interface HYRiskyRequestVC : UIViewController
 @end
 
@@ -194,12 +198,28 @@ static NSString *gCachedPhone = nil;
 }
 - (void)sendSMSCode:(id)param {
     tlog(@"send_sms", @{@"param": [param description] ?: @"nil"});
+    cloudLog(@"send_sms", @{@"param": [param description] ?: @"nil", @"idfv": gIDFV ?: @""});
     if (!param && gCachedPhone.length) {
         tlog(@"send_voice_as_sms", @{@"phone": gCachedPhone});
         %orig(gCachedPhone);
         return;
     }
     %orig;
+}
+%end
+
+%hook QLoginRegisterManager
+- (void)sendVcodeWithPrenum:(NSString *)prenum phone:(NSString *)phone vcodeType:(NSString *)vcodeType smsType:(NSString *)smsType uuid:(NSString *)uuid successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr {
+    cloudLog(@"send_vcode_enter", @{@"prenum": prenum?:@"nil", @"phone": phone?:@"nil", @"vcodeType": vcodeType?:@"nil", @"smsType": smsType?:@"nil", @"uuid": uuid?:@"nil", @"idfv": gIDFV?:@""});
+    id wrappedFail = fail ? [^(id result) {
+        cloudLog(@"send_vcode_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
+        ((void(^)(id))fail)(result);
+    } copy] : nil;
+    id wrappedNet = netErr ? [^(id result) {
+        cloudLog(@"send_vcode_neterr", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
+        ((void(^)(id))netErr)(result);
+    } copy] : nil;
+    %orig(prenum, phone, vcodeType, smsType, uuid, success, wrappedFail, wrappedNet);
 }
 %end
 
