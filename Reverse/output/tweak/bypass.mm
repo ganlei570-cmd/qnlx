@@ -45,6 +45,7 @@ static const char * const kHideDylibs[] = {
 
 static BOOL isJailPath(const char *p) {
     if (!p) return NO;
+    if (!gJailCheckActive) return NO;
     for (int i = 0; kJailPaths[i]; i++)
         if (strstr(p, kJailPaths[i])) return YES;
     return NO;
@@ -94,6 +95,7 @@ static const char *hook_class_getImageName(Class cls) {
 }
 
 static CFAbsoluteTime gStartTime = 0;
+static int32_t gJailCheckActive = 1;
 static int32_t gInTlog = 0;
 static int gDyldLogDone = 0;
 static int gImgNamesLogDone = 0;
@@ -202,11 +204,7 @@ static int (*orig_lstat64)(const char *, void *);
 static int hook_lstat64(const char *p, void *s) { return isJailPath(p) ? -1 : orig_lstat64(p, s); }
 
 static int (*orig_fstat)(int, struct stat *);
-static int hook_fstat(int fd, struct stat *s) {
-    char path[PATH_MAX] = {0};
-    if (fcntl(fd, F_GETPATH, path) == 0 && isJailPath(path)) return -1;
-    return orig_fstat(fd, s);
-}
+static int hook_fstat(int fd, struct stat *s) { return orig_fstat(fd, s); }
 
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
@@ -451,5 +449,9 @@ void installBypassHooks(void) {
     tlog(@"xkj_sym", @{@"found": @(xkjSym != NULL),
                         @"addr": [NSString stringWithFormat:@"%p", xkjSym],
                         @"popup_off": [NSString stringWithFormat:@"%p", (char*)xkjSym + 8968112]});
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        gJailCheckActive = 0;
+        tlog(@"jail_check_off", nil);
+    });
     tlog(@"bypass_installed", nil);
 }

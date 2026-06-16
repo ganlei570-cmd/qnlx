@@ -16,6 +16,45 @@
 #import "net_capture.h"
 #import "cloud_log.h"
 
+// ── NSURLSession SSL delegate proxy (covers GTS c-hzgt2.getui.com) ─
+static const char kSSLProxyKey = 0;
+
+@interface QNSSLDelegate : NSObject <NSURLSessionDelegate, NSURLSessionTaskDelegate>
+@property (nonatomic, weak) id realDelegate;
+@end
+@implementation QNSSLDelegate
+- (BOOL)respondsToSelector:(SEL)sel {
+    if (sel == @selector(URLSession:task:didReceiveChallenge:completionHandler:)) return YES;
+    if (sel == @selector(URLSession:didReceiveChallenge:completionHandler:)) return YES;
+    return [self.realDelegate respondsToSelector:sel];
+}
+- (id)forwardingTargetForSelector:(SEL)sel { return self.realDelegate; }
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
+didReceiveChallenge:(NSURLAuthenticationChallenge *)ch
+ completionHandler:(void(^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))cb {
+    if ([ch.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        cb(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:ch.protectionSpace.serverTrust]);
+        tlog(@"ssl_bypass_task", @{@"host": ch.protectionSpace.host ?: @""});
+    } else if ([self.realDelegate respondsToSelector:_cmd]) {
+        [self.realDelegate URLSession:session task:task didReceiveChallenge:ch completionHandler:cb];
+    } else {
+        cb(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    }
+}
+- (void)URLSession:(NSURLSession *)session
+didReceiveChallenge:(NSURLAuthenticationChallenge *)ch
+ completionHandler:(void(^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))cb {
+    if ([ch.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+        cb(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:ch.protectionSpace.serverTrust]);
+        tlog(@"ssl_bypass_session", @{@"host": ch.protectionSpace.host ?: @""});
+    } else if ([self.realDelegate respondsToSelector:_cmd]) {
+        [self.realDelegate URLSession:session didReceiveChallenge:ch completionHandler:cb];
+    } else {
+        cb(NSURLSessionAuthChallengePerformDefaultHandling, nil);
+    }
+}
+@end
+
 // ── WKWebView SSL bypass ─────────────────────────────────────────
 static const char kWKNavSpyKey = 0;
 
@@ -71,6 +110,16 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 
 // ── NSURLSession 请求+响应捕获（诊断用）────────────────────────
 %hook NSURLSession
++ (NSURLSession *)sessionWithConfiguration:(NSURLSessionConfiguration *)config delegate:(id<NSURLSessionDelegate>)delegate delegateQueue:(NSOperationQueue *)queue {
+    if (delegate && ![delegate isKindOfClass:[QNSSLDelegate class]]) {
+        QNSSLDelegate *proxy = [QNSSLDelegate new];
+        proxy.realDelegate = delegate;
+        objc_setAssociatedObject(delegate, &kSSLProxyKey, proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        tlog(@"ssl_session_wrap", @{@"cls": NSStringFromClass([delegate class]) ?: @""});
+        return %orig(config, proxy, queue);
+    }
+    return %orig;
+}
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)req completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))handler {
     NSString *url = req.URL.absoluteString ?: @"";
     BOOL isQunar = [url containsString:@"unar"] || [url containsString:@"qunar"];
