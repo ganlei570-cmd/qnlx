@@ -136,6 +136,8 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 @interface RiskAndPwdInfoModel : NSObject
 @end
 
+@interface StatisticsUELog : NSObject
+@end
 
 static NSString *gCachedPhone = nil;
 
@@ -348,6 +350,18 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 - (void)setRiskVerifyToken:(id)token {
     tlog(@"risk_model_set", @{@"v": [token description] ?: @"nil"});
     cloudLog(@"risk_model_set", @{@"v": [token description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    %orig;
+}
+%end
+
+// ── 诊断：GTS→App ObjC bridge（只读）────────────────────────────────
+%hook StatisticsUELog
+- (void)addStatisticsWithToolBar:(id)tb withBarButtonItem:(id)bbi withAction:(id)action {
+    cloudLog(@"stats_action", @{
+        @"action": [action description] ?: @"nil",
+        @"tb": NSStringFromClass([tb class]) ?: @"nil",
+        @"idfv": gIDFV ?: @""
+    });
     %orig;
 }
 %end
