@@ -68,6 +68,20 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
+// ── NSURLSessionDataTask resume 捕获（delegate 模式请求）─────────
+%hook NSURLSessionDataTask
+- (void)resume {
+    NSURLRequest *req = self.currentRequest;
+    NSString *url = req.URL.absoluteString ?: @"";
+    if ([url containsString:@"unar"] || [url containsString:@"qunar"]) {
+        NSData *body = req.HTTPBody;
+        NSString *bodyStr = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
+        cloudLog(@"task_resume", @{@"url": url, @"body": [bodyStr substringToIndex:MIN(500, bodyStr.length)], @"idfv": gIDFV ?: @""});
+    }
+    %orig;
+}
+%end
+
 // ── NSURLSession 请求+响应捕获（诊断用）────────────────────────
 %hook NSURLSession
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)req completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))handler {
@@ -217,15 +231,11 @@ static NSString *gCachedPhone = nil;
 %hook QBusinessLineVCodeManager
 + (void)sendVcodeWithParam:(id)param fromBusinessLine:(NSString *)bl successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr afterSendRequestCallBack:(id)after {
     cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
-    // 读取 success block 签名（诊断用，不调用）
-    if (success) {
-        void **blk = (void **)(__bridge void *)success;
-        void **desc = (void **)blk[4];
-        if (desc) {
-            const char *sig = (const char *)desc[2];
-            cloudLog(@"success_sig", @{@"sig": sig ? @(sig) : @"nil", @"idfv": gIDFV?:@""});
-        }
-    }
+    id wrappedSuccess = success ? [^(id result) {
+        tlog(@"send_vcode2_success", @{@"r": [result description] ?: @"nil"});
+        cloudLog(@"send_vcode2_success", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
+        ((void(^)(id))success)(result);
+    } copy] : nil;
     id wrappedFail = fail ? [^(id result) {
         cloudLog(@"send_vcode2_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))fail)(result);
@@ -234,7 +244,7 @@ static NSString *gCachedPhone = nil;
         cloudLog(@"send_vcode2_neterr", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))netErr)(result);
     } copy] : nil;
-    %orig(param, bl, success, wrappedFail, wrappedNet, after);
+    %orig(param, bl, wrappedSuccess, wrappedFail, wrappedNet, after);
 }
 %end
 
