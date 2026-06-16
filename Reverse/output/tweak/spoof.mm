@@ -69,6 +69,7 @@ static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
 }
 
 static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
+
 static void logCFDataResult(CFTypeRef *result, NSString *key) {
     if (!result || !*result) return;
     NSData *data = nil;
@@ -86,29 +87,45 @@ static void logCFDataResult(CFTypeRef *result, NSString *key) {
     tlog(@"kc_read_val", @{@"key": key, @"hex": h, @"len": @(data.length)});
 }
 
+static BOOL blockGtsIfNeeded(NSString *key, CFTypeRef *result) {
+    if (!key) return NO;
+    if ([key containsString:@"__gxsdk_reserved_key104__"]) {
+        tlog(@"kc_key104_cleared", @{@"key": key});
+        if (result) *result = NULL; return YES;
+    }
+    if ([key containsString:@"_key72__"]) {
+        tlog(@"kc_key72_cleared", @{@"key": key});
+        if (result) *result = NULL; return YES;
+    }
+    return NO;
+}
+
+static BOOL removeIfFakeKey2(CFDictionaryRef q, NSString *key) {
+    if (!key || ![key containsString:@"_gikeychain_key2"]) return NO;
+    NSMutableDictionary *chk = [(__bridge NSDictionary *)q mutableCopy];
+    chk[(__bridge id)kSecReturnData] = @YES;
+    chk[(__bridge id)kSecReturnAttributes] = @NO;
+    CFTypeRef raw = NULL;
+    if (orig_SecItemCopyMatching((__bridge CFDictionaryRef)chk, &raw) != errSecSuccess || !raw) return NO;
+    NSData *data = CFGetTypeID(raw) == CFDataGetTypeID() ? (__bridge_transfer NSData *)raw : nil;
+    if (!data) { CFRelease(raw); return NO; }
+    NSString *val = [[NSString alloc] initWithBytes:data.bytes length:MIN(data.length, 16) encoding:NSUTF8StringEncoding];
+    if (![val hasPrefix:@"gtc_a1b2c3d4"]) return NO;
+    orig_SecItemDelete(q);
+    tlog(@"kc_fake_key2_removed", @{@"key": key});
+    return YES;
+}
+
 static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     NSString *key = kcQueryKey(q);
-    // key104 = GTS jailbreak status cache; return notFound → force fresh check every launch
-    if (key && [key containsString:@"__gxsdk_reserved_key104__"]) {
-        tlog(@"kc_key104_cleared", @{@"key": key});
-        if (result) *result = NULL;
-        return errSecItemNotFound;
-    }
-    // key72 = GTS MD5 fingerprint cache; return notFound → force CC_MD5 recompute (we randomize it)
-    if (key && [key containsString:@"_key72__"]) {
-        tlog(@"kc_key72_cleared", @{@"key": key});
-        if (result) *result = NULL;
-        return errSecItemNotFound;
-    }
-    // key1 不再拦截：清掉 key1 会让 GTS 重新注册，服务器对新设备拒绝发短信
+    if (blockGtsIfNeeded(key, result)) return errSecItemNotFound;
+    if (removeIfFakeKey2(q, key)) { if (result) *result = NULL; return errSecItemNotFound; }
     if (shouldBlockKey(key)) {
         tlog(@"kc_blocked", @{@"key": key ?: @"nil"});
-        if (result) *result = NULL;
-        return errSecItemNotFound;
+        if (result) *result = NULL; return errSecItemNotFound;
     }
     OSStatus r = orig_SecItemCopyMatching(q, result);
-    if (r == errSecSuccess && key && isGtsKey(key))
-        logCFDataResult(result, key);
+    if (r == errSecSuccess && key && isGtsKey(key)) logCFDataResult(result, key);
     if (key && (isQunarKey(key) || isGtsKey(key)))
         tlog(@"kc_read", @{@"key": key, @"status": @(r)});
     return r;
