@@ -53,19 +53,45 @@ static void clearQunarDefaults(void) {
     tlog(@"defaults_cleared", @{@"count": @(count)});
 }
 
+static BOOL isGTSItem(NSString *svc) {
+    if (!svc) return NO;
+    return [svc containsString:@"SDK_Service"] || [svc containsString:@"gxsdk"] ||
+           [svc containsString:@"gikeychain"] || [svc containsString:@"gxkeychain"];
+}
+
+static void deleteKCItem(id cls, NSDictionary *item) {
+    NSMutableDictionary *d = [NSMutableDictionary dictionary];
+    d[(__bridge id)kSecClass]           = cls;
+    d[(__bridge id)kSecAttrAccessGroup] = @"H682X2BYS8.com.qunar.iphoneclient8";
+    NSString *svc = item[(__bridge id)kSecAttrService];
+    NSString *acc = item[(__bridge id)kSecAttrAccount];
+    if (svc) d[(__bridge id)kSecAttrService] = svc;
+    if (acc) d[(__bridge id)kSecAttrAccount] = acc;
+    SecItemDelete((__bridge CFDictionaryRef)d);
+}
+
 static void clearQunarLoginKeychain(void) {
     NSArray *classes = @[(__bridge id)kSecClassGenericPassword,
                          (__bridge id)kSecClassInternetPassword];
-    int count = 0;
+    int count = 0, skipped = 0;
     for (id cls in classes) {
         NSDictionary *q = @{
-            (__bridge id)kSecClass:           cls,
-            (__bridge id)kSecAttrAccessGroup: @"H682X2BYS8.com.qunar.iphoneclient8",
+            (__bridge id)kSecClass:            cls,
+            (__bridge id)kSecAttrAccessGroup:  @"H682X2BYS8.com.qunar.iphoneclient8",
+            (__bridge id)kSecReturnAttributes: @YES,
+            (__bridge id)kSecMatchLimit:       (__bridge id)kSecMatchLimitAll,
         };
-        OSStatus r = SecItemDelete((__bridge CFDictionaryRef)q);
-        if (r == errSecSuccess) count++;
+        CFTypeRef raw = NULL;
+        if (SecItemCopyMatching((__bridge CFDictionaryRef)q, &raw) != errSecSuccess || !raw) continue;
+        NSArray *items = (CFGetTypeID(raw) == CFArrayGetTypeID())
+            ? (__bridge_transfer NSArray *)raw : @[(__bridge_transfer id)raw];
+        for (NSDictionary *item in items) {
+            if (isGTSItem(item[(__bridge id)kSecAttrService])) { skipped++; continue; }
+            deleteKCItem(cls, item);
+            count++;
+        }
     }
-    tlog(@"kc_login_cleared", @{@"count": @(count)});
+    tlog(@"kc_login_cleared", @{@"count": @(count), @"skipped": @(skipped)});
 }
 
 static void handleClearSafari(CFNotificationCenterRef c, void *o,
