@@ -335,6 +335,21 @@ static CCCryptorStatus hook_CCCrypt(CCOperation op, CCAlgorithm alg, CCOptions o
     return r;
 }
 
+typedef CCCryptorStatus (*CCCryptorUpdateFn)(CCCryptorRef, const void *, size_t, void *, size_t, size_t *);
+static CCCryptorUpdateFn orig_CCCryptorUpdate;
+static CCCryptorStatus hook_CCCryptorUpdate(CCCryptorRef ref, const void *dataIn, size_t dataInLen,
+                                             void *dataOut, size_t dataOutAvail, size_t *dataOutMoved) {
+    CCCryptorStatus r = orig_CCCryptorUpdate(ref, dataIn, dataInLen, dataOut, dataOutAvail, dataOutMoved);
+    if (r != kCCSuccess || !dataOut || !dataOutMoved || *dataOutMoved < 2) return r;
+    if (((const uint8_t *)dataOut)[0] != '{') return r;
+    @try {
+        size_t n = MIN(*dataOutMoved, 500);
+        NSString *txt = [[NSString alloc] initWithBytes:dataOut length:n encoding:NSUTF8StringEncoding];
+        tlog(@"cryptu", @{@"len": @(*dataOutMoved), @"txt": txt ?: @"[bin]"});
+    } @catch(id e) {}
+    return r;
+}
+
 typedef CCCryptorStatus (*CCCryptorFinalFn)(CCCryptorRef, void *, size_t, size_t *);
 static CCCryptorFinalFn orig_CCCryptorFinal;
 static CCCryptorStatus hook_CCCryptorFinal(CCCryptorRef ref, void *dataOut, size_t dataOutAvail, size_t *dataOutMoved) {
@@ -353,6 +368,8 @@ static CCCryptorStatus hook_CCCryptorFinal(CCCryptorRef ref, void *dataOut, size
 void installNetCaptureHooks(void) {
     void *fnc = dlsym(RTLD_DEFAULT, "CCCrypt");
     if (fnc) MSHookFunction(fnc, (void *)hook_CCCrypt, (void **)&orig_CCCrypt);
+    void *fnu = dlsym(RTLD_DEFAULT, "CCCryptorUpdate");
+    if (fnu) MSHookFunction(fnu, (void *)hook_CCCryptorUpdate, (void **)&orig_CCCryptorUpdate);
     void *fnf = dlsym(RTLD_DEFAULT, "CCCryptorFinal");
     if (fnf) MSHookFunction(fnf, (void *)hook_CCCryptorFinal, (void **)&orig_CCCryptorFinal);
     void *fnr = dlsym(RTLD_DEFAULT, "SSLRead");
