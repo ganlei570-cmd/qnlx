@@ -152,8 +152,8 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 @interface QnrSendVCodeParam : NSObject
 @end
 
-@interface QLoginRegisterManager : NSObject
-- (void)sendVcodeWithPrenum:(NSString *)prenum phone:(NSString *)phone vcodeType:(NSString *)vcodeType smsType:(NSString *)smsType uuid:(NSString *)uuid successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr;
+@interface QBusinessLineVCodeManager : NSObject
++ (void)sendVcodeWithParam:(id)param fromBusinessLine:(NSString *)bl successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr afterSendRequestCallBack:(id)after;
 @end
 
 @interface HYRiskyRequestVC : UIViewController
@@ -208,18 +208,18 @@ static NSString *gCachedPhone = nil;
 }
 %end
 
-%hook QLoginRegisterManager
-- (void)sendVcodeWithPrenum:(NSString *)prenum phone:(NSString *)phone vcodeType:(NSString *)vcodeType smsType:(NSString *)smsType uuid:(NSString *)uuid successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr {
-    cloudLog(@"send_vcode_enter", @{@"prenum": prenum?:@"nil", @"phone": phone?:@"nil", @"vcodeType": vcodeType?:@"nil", @"smsType": smsType?:@"nil", @"uuid": uuid?:@"nil", @"idfv": gIDFV?:@""});
+%hook QBusinessLineVCodeManager
++ (void)sendVcodeWithParam:(id)param fromBusinessLine:(NSString *)bl successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr afterSendRequestCallBack:(id)after {
+    cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
     id wrappedFail = fail ? [^(id result) {
-        cloudLog(@"send_vcode_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
+        cloudLog(@"send_vcode2_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))fail)(result);
     } copy] : nil;
     id wrappedNet = netErr ? [^(id result) {
-        cloudLog(@"send_vcode_neterr", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
+        cloudLog(@"send_vcode2_neterr", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))netErr)(result);
     } copy] : nil;
-    %orig(prenum, phone, vcodeType, smsType, uuid, success, wrappedFail, wrappedNet);
+    %orig(param, bl, success, wrappedFail, wrappedNet, after);
 }
 %end
 
