@@ -69,6 +69,7 @@ static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
 }
 
 static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
+static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
 
 static void logCFDataResult(CFTypeRef *result, NSString *key) {
     if (!result || !*result) return;
@@ -130,8 +131,6 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
         tlog(@"kc_read", @{@"key": key, @"status": @(r)});
     return r;
 }
-
-static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
 
 static void logGtsValue(CFDictionaryRef attrs, NSString *key) {
     CFTypeRef v = CFDictionaryGetValue(attrs, kSecValueData);
