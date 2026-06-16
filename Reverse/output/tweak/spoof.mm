@@ -100,12 +100,7 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
         if (result) *result = NULL;
         return errSecItemNotFound;
     }
-    // GI/GX key1 → notFound，强迫 GTS 无缓存路径
-    if (key && ([key containsString:@"_gikeychain_key1"] || [key containsString:@"_gxkeychain_key1"])) {
-        tlog(@"kc_key1_spoofed", @{@"key": key});
-        if (result) *result = NULL;
-        return errSecItemNotFound;
-    }
+    // key1 不再拦截：清掉 key1 会让 GTS 重新注册，服务器对新设备拒绝发短信
     if (shouldBlockKey(key)) {
         tlog(@"kc_blocked", @{@"key": key ?: @"nil"});
         if (result) *result = NULL;
