@@ -393,6 +393,19 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             tlog(@"init_jbprobe_done", nil);
             %init(GRiskControl);
             tlog(@"init_riskctl_done", nil);
+            // 运行时扫描：找哪个类实现了 addStatisticsWithToolBar:withBarButtonItem:withAction:
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+                SEL sel = NSSelectorFromString(@"addStatisticsWithToolBar:withBarButtonItem:withAction:");
+                unsigned int cnt = 0;
+                Class *all = objc_copyClassList(&cnt);
+                NSMutableArray *found = [NSMutableArray array];
+                for (unsigned int i = 0; i < cnt; i++) {
+                    if (class_getInstanceMethod(all[i], sel))
+                        [found addObject:NSStringFromClass(all[i])];
+                }
+                free(all);
+                cloudLog(@"stats_class_scan", @{@"found": found, @"idfv": gIDFV ?: @""});
+            });
         }
     }
 }
