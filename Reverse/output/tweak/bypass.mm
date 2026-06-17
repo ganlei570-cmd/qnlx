@@ -60,19 +60,6 @@ static BOOL isInjDylib(const char *n) {
     return NO;
 }
 
-static int (*orig_csops)(pid_t, unsigned int, void *, size_t);
-static int hook_csops(pid_t pid, unsigned int ops, void *useraddr, size_t usersize) {
-    int r = orig_csops(pid, ops, useraddr, usersize);
-    if (r == 0 && ops == 0 && useraddr && usersize >= 4) {
-        uint32_t *flags = (uint32_t *)useraddr;
-        if (*flags & 0x10000000u) {
-            tlog(@"csops_patched", @{@"before": @(*flags)});
-            *flags &= ~0x10000000u;
-        }
-    }
-    return r;
-}
-
 static int (*orig_ptrace)(int, pid_t, caddr_t, int);
 static int hook_ptrace(int req, pid_t pid, caddr_t addr, int data) {
     return (req == 31) ? 0 : orig_ptrace(req, pid, addr, data);
@@ -433,7 +420,6 @@ static BOOL hook_fileExistsIsDir(id self, SEL cmd, NSString *path, BOOL *isDir) 
 }
 
 static void hookAntiDebug(void) {
-    MH("csops",   hook_csops,   &orig_csops);
     MH("ptrace",  hook_ptrace,  &orig_ptrace);
     MH("sysctl",  hook_sysctl,  &orig_sysctl);
     MH("fork",    hook_fork,    &orig_fork);
