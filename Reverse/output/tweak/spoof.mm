@@ -142,6 +142,7 @@ static void logGtsValue(CFDictionaryRef attrs, NSString *key) {
 static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
 static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     NSString *key = kcQueryKey(attrs);
+    if (key && [key hasPrefix:@"GI_"]) tlog(@"kc_gi_add_attempt", @{@"key": key});
     OSStatus r = orig_SecItemAdd(attrs, result);
     BOOL gtsGiReplace = gBlockGtsGiKeys && key && [key hasPrefix:@"GI_"];
     if (r == errSecDuplicateItem && key && ([gKeychainClearSet containsObject:key] || gtsGiReplace)) {
@@ -165,12 +166,15 @@ static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
             saveKeychainAllowed();
         }
     }
+    if (r != errSecSuccess && key && (isGtsKey(key) || isQunarKey(key)))
+        tlog(@"kc_add_failed", @{@"key": key, @"status": @(r)});
     return r;
 }
 
 static OSStatus (*orig_SecItemUpdate)(CFDictionaryRef, CFDictionaryRef);
 static OSStatus hook_SecItemUpdate(CFDictionaryRef q, CFDictionaryRef attrs) {
     NSString *key = kcQueryKey(q);
+    if (key && [key hasPrefix:@"GI_"]) tlog(@"kc_gi_update_attempt", @{@"key": key});
     OSStatus r = orig_SecItemUpdate(q, attrs);
     if (r == errSecSuccess && key) {
         tlog(@"kc_updated", @{@"key": key});
@@ -182,6 +186,16 @@ static OSStatus hook_SecItemUpdate(CFDictionaryRef q, CFDictionaryRef attrs) {
             @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
             @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
             saveKeychainAllowed();
+        }
+    }
+    if (r != errSecSuccess && key && (isGtsKey(key) || isQunarKey(key))) {
+        tlog(@"kc_update_failed", @{@"key": key, @"status": @(r)});
+        if (r == errSecItemNotFound && [key hasPrefix:@"GI_"] && [key containsString:@"_gikeychain_key2"]) {
+            NSMutableDictionary *add = [(__bridge NSDictionary *)q mutableCopy];
+            [add addEntriesFromDictionary:(__bridge NSDictionary *)attrs];
+            OSStatus ar = orig_SecItemAdd((__bridge CFDictionaryRef)add, NULL);
+            tlog(@"kc_key2_update_fallback", @{@"key": key, @"status": @(ar)});
+            if (ar == errSecSuccess) logGtsValue((__bridge CFDictionaryRef)add, key);
         }
     }
     return r;
