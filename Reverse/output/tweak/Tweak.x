@@ -533,13 +533,25 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 %end
 
 // ── 诊断：MQTT 连接状态 ──────────────────────────────────────────
-%hook HYMQTTPlugin
-- (void)registerBizModule:(id)module data:(id)data withCallBack:(id)cb {
-    tlog(@"mqtt_reg_biz", @{@"m": [module description] ?: @"nil"});
+%hook MQTTClientManager
+- (void)subscribeTopic:(NSString *)topic {
+    tlog(@"mqtt_sub", @{@"t": topic ?: @"nil"});
     %orig;
 }
-- (void)publishTopic:(id)topic data:(id)data withCallBack:(id)cb {
-    tlog(@"mqtt_pub", @{@"t": [topic description] ?: @"nil"});
+- (void)mqtt5:(id)mqtt5 didConnectAck:(NSInteger)ack connAckData:(id)data {
+    tlog(@"mqtt_conn_ack", @{@"ack": @(ack)});
+    %orig;
+}
+- (void)mqtt5DidDisconnect:(id)mqtt5 withError:(NSError *)err {
+    tlog(@"mqtt_disc", @{@"err": [err localizedDescription] ?: @"nil"});
+    %orig;
+}
+- (void)mqtt5:(id)mqtt5 didStateChangeTo:(NSInteger)state {
+    tlog(@"mqtt_state", @{@"s": @(state)});
+    %orig;
+}
+- (void)mqtt5:(id)mqtt5 didReceiveMessage:(NSString *)msg id:(NSInteger)msgId publishData:(id)data {
+    tlog(@"mqtt_recv", @{@"msg": [msg description] ?: @"nil", @"id": @(msgId)});
     %orig;
 }
 %end
@@ -585,12 +597,8 @@ static void tryRespSuccess(id response, NSDictionary *data) {
                     if (![mqttCls respondsToSelector:s]) continue;
                     id obj = ((id (*)(Class, SEL))objc_msgSend)(mqttCls, s);
                     if (!obj) continue;
-                    for (NSString *q in @[@"isMQTTConnected", @"isMQTTConnecting", @"isConnected"]) {
-                        SEL qs = NSSelectorFromString(q);
-                        if (![obj respondsToSelector:qs]) continue;
-                        BOOL v = ((BOOL (*)(id, SEL))objc_msgSend)(obj, qs);
-                        tlog(@"mqtt_stat", @{@"tag": @"t3", @"sel": q, @"v": @(v)});
-                    }
+                    NSInteger state = ((NSInteger (*)(id, SEL))objc_msgSend)(obj, NSSelectorFromString(@"mqttState"));
+                    tlog(@"mqtt_stat", @{@"tag": @"t3", @"state": @(state)});
                     tlog(@"mqtt_obj", @{@"tag": @"t3", @"cls": NSStringFromClass([obj class])});
                     break;
                 }
@@ -604,12 +612,8 @@ static void tryRespSuccess(id response, NSDictionary *data) {
                     if (![mqttCls respondsToSelector:s]) continue;
                     id obj = ((id (*)(Class, SEL))objc_msgSend)(mqttCls, s);
                     if (!obj) continue;
-                    for (NSString *q in @[@"isMQTTConnected", @"isMQTTConnecting", @"isConnected"]) {
-                        SEL qs = NSSelectorFromString(q);
-                        if (![obj respondsToSelector:qs]) continue;
-                        BOOL v = ((BOOL (*)(id, SEL))objc_msgSend)(obj, qs);
-                        tlog(@"mqtt_stat", @{@"tag": @"t7", @"sel": q, @"v": @(v)});
-                    }
+                    NSInteger state = ((NSInteger (*)(id, SEL))objc_msgSend)(obj, NSSelectorFromString(@"mqttState"));
+                    tlog(@"mqtt_stat", @{@"tag": @"t7", @"state": @(state)});
                     break;
                 }
             });
