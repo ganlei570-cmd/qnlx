@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 struct rebinding {
     const char *name;
     void *replacement;
@@ -13,5 +17,9 @@ struct rebinding {
 int rebind_symbols(struct rebinding rebindings[], size_t rebindings_nel);
 int rebind_symbols_image(void *header, intptr_t slide,
                          struct rebinding rebindings[], size_t rebindings_nel);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
