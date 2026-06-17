@@ -532,6 +532,18 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
+// ── 诊断：MQTT 连接状态 ──────────────────────────────────────────
+%hook HYMQTTPlugin
+- (void)registerBizModule:(id)module data:(id)data withCallBack:(id)cb {
+    tlog(@"mqtt_reg_biz", @{@"m": [module description] ?: @"nil"});
+    %orig;
+}
+- (void)publishTopic:(id)topic data:(id)data withCallBack:(id)cb {
+    tlog(@"mqtt_pub", @{@"t": [topic description] ?: @"nil"});
+    %orig;
+}
+%end
+
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
     @autoreleasepool {
@@ -559,6 +571,48 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             tlog(@"init_jbprobe_done", nil);
             %init(GRiskControl);
             tlog(@"init_riskctl_done", nil);
+            // MQTT 诊断：3秒后 dump MQTTClientManager 方法列表 + 连接状态
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+                Class mqttCls = NSClassFromString(@"MQTTClientManager");
+                if (!mqttCls) { tlog(@"mqtt_cls_miss", @{@"tag": @"t3"}); return; }
+                unsigned int mc = 0;
+                Method *ms = class_copyMethodList(mqttCls, &mc);
+                for (unsigned int i = 0; i < mc; i++)
+                    tlog(@"mqtt_m", @{@"n": NSStringFromSelector(method_getName(ms[i]))});
+                free(ms);
+                for (NSString *selName in @[@"sharedInstance", @"sharedManager", @"shared"]) {
+                    SEL s = NSSelectorFromString(selName);
+                    if (![mqttCls respondsToSelector:s]) continue;
+                    id obj = ((id (*)(Class, SEL))objc_msgSend)(mqttCls, s);
+                    if (!obj) continue;
+                    for (NSString *q in @[@"isMQTTConnected", @"isMQTTConnecting", @"isConnected"]) {
+                        SEL qs = NSSelectorFromString(q);
+                        if (![obj respondsToSelector:qs]) continue;
+                        BOOL v = ((BOOL (*)(id, SEL))objc_msgSend)(obj, qs);
+                        tlog(@"mqtt_stat", @{@"tag": @"t3", @"sel": q, @"v": @(v)});
+                    }
+                    tlog(@"mqtt_obj", @{@"tag": @"t3", @"cls": NSStringFromClass([obj class])});
+                    break;
+                }
+            });
+            // MQTT 诊断：7秒后再查一次（清登录完成后约3秒）
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 7 * NSEC_PER_SEC), dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
+                Class mqttCls = NSClassFromString(@"MQTTClientManager");
+                if (!mqttCls) return;
+                for (NSString *selName in @[@"sharedInstance", @"sharedManager", @"shared"]) {
+                    SEL s = NSSelectorFromString(selName);
+                    if (![mqttCls respondsToSelector:s]) continue;
+                    id obj = ((id (*)(Class, SEL))objc_msgSend)(mqttCls, s);
+                    if (!obj) continue;
+                    for (NSString *q in @[@"isMQTTConnected", @"isMQTTConnecting", @"isConnected"]) {
+                        SEL qs = NSSelectorFromString(q);
+                        if (![obj respondsToSelector:qs]) continue;
+                        BOOL v = ((BOOL (*)(id, SEL))objc_msgSend)(obj, qs);
+                        tlog(@"mqtt_stat", @{@"tag": @"t7", @"sel": q, @"v": @(v)});
+                    }
+                    break;
+                }
+            });
             // 运行时扫描：找哪个类实现了 addStatisticsWithToolBar:withBarButtonItem:withAction:
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_BACKGROUND, 0), ^{
                 SEL sel = NSSelectorFromString(@"addStatisticsWithToolBar:withBarButtonItem:withAction:");
