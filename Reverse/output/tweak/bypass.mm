@@ -213,6 +213,43 @@ static int hook_fstat(int fd, struct stat *s) { return orig_fstat(fd, s); }
 static pid_t (*orig_fork)(void);
 static pid_t hook_fork(void) { return -1; }
 
+// ── 诊断：open/openat/faccessat 越狱路径（只记录，不拦截）──────────
+static int (*orig_open)(const char *, int);
+static int hook_open_diag(const char *path, int flags) {
+    int r = orig_open(path, flags);
+    if (path && isJailPath(path) && gStartTime > 0
+        && (CFAbsoluteTimeGetCurrent() - gStartTime) < 5.0
+        && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"open_jb", @{@"p": @(path), @"r": @(r)});
+        gInTlog = 0;
+    }
+    return r;
+}
+
+static int (*orig_openat)(int, const char *, int);
+static int hook_openat_diag(int dirfd, const char *path, int flags) {
+    int r = orig_openat(dirfd, path, flags);
+    if (path && isJailPath(path) && gStartTime > 0
+        && (CFAbsoluteTimeGetCurrent() - gStartTime) < 5.0
+        && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"openat_jb", @{@"p": @(path), @"r": @(r)});
+        gInTlog = 0;
+    }
+    return r;
+}
+
+static int (*orig_faccessat)(int, const char *, int, int);
+static int hook_faccessat_diag(int dirfd, const char *path, int mode, int flags) {
+    int r = orig_faccessat(dirfd, path, mode, flags);
+    if (path && isJailPath(path) && gStartTime > 0
+        && (CFAbsoluteTimeGetCurrent() - gStartTime) < 5.0
+        && !gInTlog && __sync_bool_compare_and_swap(&gInTlog, 0, 1)) {
+        tlog(@"faccessat_jb", @{@"p": @(path), @"r": @(r)});
+        gInTlog = 0;
+    }
+    return r;
+}
+
 static char *(*orig_getenv)(const char *);
 static char *hook_getenv(const char *k) {
     if (k && (!strcmp(k, "DYLD_INSERT_LIBRARIES") || !strcmp(k, "DYLD_LIBRARY_PATH")))
@@ -449,7 +486,10 @@ static void hookEnvDetect(void) {
     MH("getenv",   hook_getenv,   &orig_getenv);
     MH("popen",    hook_popen,    &orig_popen);
     MH("system",   hook_system,   &orig_system);
-    MH("dlopen",  hook_dlopen,  &orig_dlopen);
+    MH("dlopen",     hook_dlopen,         &orig_dlopen);
+    MH("open",       hook_open_diag,      &orig_open);
+    MH("openat",     hook_openat_diag,    &orig_openat);
+    MH("faccessat",  hook_faccessat_diag, &orig_faccessat);
 }
 
 static OSStatus (*orig_SSLSetSessionOption)(void *, int32_t, Boolean);
