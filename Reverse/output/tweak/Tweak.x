@@ -284,7 +284,6 @@ static NSString *gCachedPhone = nil;
 
 %hook QnrSendVCodeParam
 - (void)setVcodeType:(id)type {
-    if ([[type description] isEqualToString:@"12"]) type = @"1";
     tlog(@"vcode_type_bypass", @{@"v": [type description] ?: @"nil"});
     cloudLog(@"vcode_type_bypass", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
     gVcodeActive = 1;
