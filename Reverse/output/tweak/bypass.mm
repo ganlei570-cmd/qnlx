@@ -435,7 +435,12 @@ static int32_t gSSLRCnt = 0;
 static OSStatus hook_SSLRead(void *ctx, void *data, size_t len, size_t *got) {
     OSStatus r = orig_SSLRead(ctx, data, len, got);
     int32_t n = __sync_add_and_fetch(&gSSLRCnt, 1);
-    if (n <= 40 && got) tlog(@"ssl_r", @{@"n": @(n), @"got": @(*got), @"r": @(r)});
+    if (n <= 40 && got && *got > 0 && data) {
+        NSMutableString *h = [NSMutableString string];
+        for (size_t i = 0; i < MIN(*got, 16); i++)
+            [h appendFormat:@"%02x", ((uint8_t *)data)[i]];
+        tlog(@"ssl_r", @{@"n": @(n), @"got": @(*got), @"hex": h});
+    }
     return r;
 }
 
