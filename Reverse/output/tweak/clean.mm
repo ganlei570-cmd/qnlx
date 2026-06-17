@@ -90,6 +90,31 @@ static void clearKeychainItems(BOOL includeGts) {
 }
 
 
+static void clearGtsGiKeys(void) {
+    NSArray *classes = @[(__bridge id)kSecClassGenericPassword,
+                         (__bridge id)kSecClassInternetPassword];
+    int count = 0;
+    for (id cls in classes) {
+        NSDictionary *q = @{
+            (__bridge id)kSecClass:            cls,
+            (__bridge id)kSecAttrAccessGroup:  @"H682X2BYS8.com.qunar.iphoneclient8",
+            (__bridge id)kSecReturnAttributes: @YES,
+            (__bridge id)kSecMatchLimit:       (__bridge id)kSecMatchLimitAll,
+        };
+        CFTypeRef raw = NULL;
+        if (SecItemCopyMatching((__bridge CFDictionaryRef)q, &raw) != errSecSuccess || !raw) continue;
+        NSArray *items = (CFGetTypeID(raw) == CFArrayGetTypeID())
+            ? (__bridge_transfer NSArray *)raw : @[(__bridge_transfer id)raw];
+        for (NSDictionary *item in items) {
+            NSString *svc = item[(__bridge id)kSecAttrService];
+            if (![svc hasPrefix:@"GI_"]) continue;
+            deleteKCItem(cls, item);
+            count++;
+        }
+    }
+    tlog(@"gtc_gi_cleared", @{@"count": @(count)});
+}
+
 void clearAccountOnly(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
@@ -138,6 +163,7 @@ void initCleanHooks(void) {
     if ([[NSFileManager defaultManager] fileExistsAtPath:pendingPath]) {
         [[NSFileManager defaultManager] removeItemAtPath:pendingPath error:nil];
         tlog(@"new_machine_pending_detected", nil);
+        clearGtsGiKeys();
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             NSURL *url = [NSURL URLWithString:@"qunariphone://uc/logout"];
             [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:^(BOOL ok) {
