@@ -229,6 +229,11 @@ static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
                     @"hex": hexReq,
                     @"str": bs.length > 800 ? [bs substringToIndex:800] : bs
                 });
+                NSArray *stk = [NSThread callStackSymbols];
+                NSMutableString *sf = [NSMutableString string];
+                for (NSUInteger fi = 1; fi < MIN((NSUInteger)20, stk.count); fi++)
+                    [sf appendFormat:@"\n%@", stk[fi]];
+                tlog(@"vcode_stack", @{@"s": sf});
             } else {
                 NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
                 tlog(@"req_del", @{
