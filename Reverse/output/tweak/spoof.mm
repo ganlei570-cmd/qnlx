@@ -70,7 +70,6 @@ static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
 
 static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
 static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
-volatile BOOL gBlockGtsGiKeys = NO;
 
 static void logCFDataResult(CFTypeRef *result, NSString *key) {
     if (!result || !*result) return;
@@ -89,36 +88,10 @@ static void logCFDataResult(CFTypeRef *result, NSString *key) {
     tlog(@"kc_read_val", @{@"key": key, @"hex": h, @"len": @(data.length)});
 }
 
-static BOOL blockGtsIfNeeded(NSString *key, CFTypeRef *result) {
-    return NO;
-}
-
-static BOOL removeIfFakeKey2(CFDictionaryRef q, NSString *key) {
-    if (!key || ![key containsString:@"_gikeychain_key2"]) return NO;
-    NSMutableDictionary *chk = [(__bridge NSDictionary *)q mutableCopy];
-    chk[(__bridge id)kSecReturnData] = @YES;
-    chk[(__bridge id)kSecReturnAttributes] = @NO;
-    CFTypeRef raw = NULL;
-    if (orig_SecItemCopyMatching((__bridge CFDictionaryRef)chk, &raw) != errSecSuccess || !raw) return NO;
-    NSData *data = CFGetTypeID(raw) == CFDataGetTypeID() ? (__bridge_transfer NSData *)raw : nil;
-    if (!data) { CFRelease(raw); return NO; }
-    NSString *val = [[NSString alloc] initWithBytes:data.bytes length:MIN(data.length, 16) encoding:NSUTF8StringEncoding];
-    if (![val hasPrefix:@"gtc_a1b2c3d4"]) return NO;
-    orig_SecItemDelete(q);
-    tlog(@"kc_fake_key2_removed", @{@"key": key});
-    return YES;
-}
-
 static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     NSString *key = kcQueryKey(q);
-    if (blockGtsIfNeeded(key, result)) return errSecItemNotFound;
-    if (removeIfFakeKey2(q, key)) { if (result) *result = NULL; return errSecItemNotFound; }
     if (shouldBlockKey(key)) {
         tlog(@"kc_blocked", @{@"key": key ?: @"nil"});
-        if (result) *result = NULL; return errSecItemNotFound;
-    }
-    if (gBlockGtsGiKeys && key && [key hasPrefix:@"GI_"]) {
-        tlog(@"kc_gi_blocked", @{@"key": key});
         if (result) *result = NULL; return errSecItemNotFound;
     }
     OSStatus r = orig_SecItemCopyMatching(q, result);
@@ -142,10 +115,8 @@ static void logGtsValue(CFDictionaryRef attrs, NSString *key) {
 static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
 static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     NSString *key = kcQueryKey(attrs);
-    if (key && [key hasPrefix:@"GI_"]) tlog(@"kc_gi_add_attempt", @{@"key": key});
     OSStatus r = orig_SecItemAdd(attrs, result);
-    BOOL gtsGiReplace = gBlockGtsGiKeys && key && [key hasPrefix:@"GI_"];
-    if (r == errSecDuplicateItem && key && ([gKeychainClearSet containsObject:key] || gtsGiReplace)) {
+    if (r == errSecDuplicateItem && key && [gKeychainClearSet containsObject:key]) {
         orig_SecItemDelete(attrs);
         r = orig_SecItemAdd(attrs, result);
         if (r == errSecSuccess)
@@ -153,13 +124,7 @@ static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     }
     if (r == errSecSuccess && key) {
         tlog(@"kc_written", @{@"key": key});
-        if (isGtsKey(key)) {
-            logGtsValue(attrs, key);
-            if (gBlockGtsGiKeys && [key hasPrefix:@"GI_"]) {
-                gBlockGtsGiKeys = NO;
-                tlog(@"kc_gi_unblocked", @{@"key": key});
-            }
-        }
+        if (isGtsKey(key)) logGtsValue(attrs, key);
         if (isQunarKey(key)) {
             @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
             @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
@@ -174,30 +139,17 @@ static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
 static OSStatus (*orig_SecItemUpdate)(CFDictionaryRef, CFDictionaryRef);
 static OSStatus hook_SecItemUpdate(CFDictionaryRef q, CFDictionaryRef attrs) {
     NSString *key = kcQueryKey(q);
-    if (key && [key hasPrefix:@"GI_"]) tlog(@"kc_gi_update_attempt", @{@"key": key});
     OSStatus r = orig_SecItemUpdate(q, attrs);
     if (r == errSecSuccess && key) {
         tlog(@"kc_updated", @{@"key": key});
-        if (gBlockGtsGiKeys && [key hasPrefix:@"GI_"]) {
-            gBlockGtsGiKeys = NO;
-            tlog(@"kc_gi_unblocked", @{@"key": key});
-        }
         if (isQunarKey(key)) {
             @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
             @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
             saveKeychainAllowed();
         }
     }
-    if (r != errSecSuccess && key && (isGtsKey(key) || isQunarKey(key))) {
+    if (r != errSecSuccess && key && (isGtsKey(key) || isQunarKey(key)))
         tlog(@"kc_update_failed", @{@"key": key, @"status": @(r)});
-        if (r == errSecItemNotFound && [key hasPrefix:@"GI_"] && [key containsString:@"_gikeychain_key2"]) {
-            NSMutableDictionary *add = [(__bridge NSDictionary *)q mutableCopy];
-            [add addEntriesFromDictionary:(__bridge NSDictionary *)attrs];
-            OSStatus ar = orig_SecItemAdd((__bridge CFDictionaryRef)add, NULL);
-            tlog(@"kc_key2_update_fallback", @{@"key": key, @"status": @(ar)});
-            if (ar == errSecSuccess) logGtsValue((__bridge CFDictionaryRef)add, key);
-        }
-    }
     return r;
 }
 

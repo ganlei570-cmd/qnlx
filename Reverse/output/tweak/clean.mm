@@ -5,8 +5,6 @@
 #import "clean.h"
 #import "tlog.h"
 
-extern volatile BOOL gBlockGtsGiKeys;
-
 static NSArray<NSString *> *safariTargets(void) {
     NSString *base = @"/var/mobile/Library/Safari";
     NSArray *names = @[
@@ -147,12 +145,23 @@ static void handleClearLogin(CFNotificationCenterRef c, void *o,
     clearAccountOnly();
 }
 
+static void clearGtsKeys(void) {
+    for (NSString *acc in @[@"__gxsdk_reserved_key7__", @"_gikeychain_key1", @"_gikeychain_key2"]) {
+        NSDictionary *q = @{ (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+                              (__bridge id)kSecAttrAccount: acc };
+        OSStatus r = SecItemDelete((__bridge CFDictionaryRef)q);
+        tlog(@"gts_key_del", @{@"acc": acc, @"r": @(r)});
+    }
+}
+
 void initCleanHooks(void) {
     NSString *pendingPath = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/qunar_new_machine_pending"];
     if ([[NSFileManager defaultManager] fileExistsAtPath:pendingPath]) {
         [[NSFileManager defaultManager] removeItemAtPath:pendingPath error:nil];
         tlog(@"new_machine_pending_detected", nil);
-        gBlockGtsGiKeys = YES;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            clearGtsKeys();
+        });
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             NSURL *url = [NSURL URLWithString:@"qunariphone://uc/logout"];
             [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:^(BOOL ok) {
