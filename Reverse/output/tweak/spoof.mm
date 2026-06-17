@@ -105,7 +105,7 @@ static void logGtsValue(CFDictionaryRef attrs, NSString *key) {
     CFTypeRef v = CFDictionaryGetValue(attrs, kSecValueData);
     if (!v || CFGetTypeID(v) != CFDataGetTypeID()) return;
     NSData *d = (__bridge NSData *)v;
-    NSUInteger len = MIN(d.length, 16);
+    NSUInteger len = d.length;
     NSMutableString *hex = [NSMutableString string];
     for (NSUInteger i = 0; i < len; i++)
         [hex appendFormat:@"%02x", ((const uint8_t *)d.bytes)[i]];
