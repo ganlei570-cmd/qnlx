@@ -145,6 +145,8 @@ static int hook_connect(int fd, const struct sockaddr *sa, socklen_t sl) {
             errno = ECONNREFUSED;
             return -1;
         }
+        if (port != 80 && port != 443 && port != 53)
+            tlog(@"connect_nonstd", @{@"port": @(port)});
     }
     return orig_connect(fd, sa, sl);
 }
@@ -413,6 +415,7 @@ static OSStatus hook_SSLSetSessionOption(void *ctx, int32_t opt, Boolean val) {
 static OSStatus (*orig_SSLHandshake)(void *);
 static OSStatus hook_SSLHandshake(void *ctx) {
     OSStatus r = orig_SSLHandshake(ctx);
+    tlog(@"ssl_hs", @{@"r": @(r)});
     if (r == (OSStatus)-9841 /* errSSLServerAuthCompleted */) {
         tlog(@"ssl_auth_completed_bypass", nil);
         r = orig_SSLHandshake(ctx);
