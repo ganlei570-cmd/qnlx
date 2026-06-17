@@ -39,7 +39,9 @@ static BOOL isRelevant(NSString *s) {
            [s containsString:@"hotelList"] || [s containsString:@"errCode"]    ||
            [s containsString:@"hotelId"]   || [s containsString:@"price"]      ||
            [s containsString:@"风险"]      || [s containsString:@"异常"]        ||
-           [s containsString:@"错误"]      || [s containsString:@"失败"];
+           [s containsString:@"错误"]      || [s containsString:@"失败"]       ||
+           [s containsString:@"getui"]     || [s containsString:@"gtcid"]      ||
+           [s containsString:@"GTCID"]     || [s containsString:@"aesSecret"];
 }
 
 static OSStatus (*orig_SSLRead)(SSLContextRef, void *, size_t, size_t *);
@@ -102,7 +104,7 @@ static char kVcodeAccKey = 0;
                 objc_setAssociatedObject(t, &kVcodeAccKey, acc, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
             }
             [acc appendData:d];
-        } else if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"]) {
+        } else if (([u containsString:@"qunar.com"] || [u containsString:@"getui.com"] || [u containsString:@"getui.cn"]) && ![u containsString:@"slugger"]) {
             NSString *b = nil;
             NSData *gz = tryGunzip(d.bytes, d.length);
             if (gz) b = [[NSString alloc] initWithData:gz encoding:NSUTF8StringEncoding];
@@ -135,7 +137,7 @@ static char kVcodeAccKey = 0;
                 @"err": e.localizedDescription ?: @"",
                 @"hex": hexStr
             });
-        } else if ([u containsString:@"qunar.com"] && ![u containsString:@"slugger"]) {
+        } else if (([u containsString:@"qunar.com"] || [u containsString:@"getui.com"] || [u containsString:@"getui.cn"]) && ![u containsString:@"slugger"]) {
             tlog(@"resp_done", @{
                 @"u": u.length > 120 ? [u substringToIndex:120] : u,
                 @"e": e.localizedDescription ?: @""
@@ -215,7 +217,8 @@ static id (*orig_dataTaskReqDel)(id, SEL, NSURLRequest *);
 static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
     @try {
         NSString *u = req.URL.absoluteString ?: @"";
-        if ([u containsString:@"qunar"]) {
+        BOOL isTarget = [u containsString:@"qunar"] || [u containsString:@"getui"];
+        if (isTarget) {
             NSData *body = req.HTTPBody;
             if ([u containsString:@"p_ucGetVcodeV2"]) {
                 NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
@@ -236,7 +239,8 @@ static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
                 tlog(@"vcode_stack", @{@"s": sf});
             } else {
                 NSString *bs = body ? ([[NSString alloc] initWithData:body encoding:NSUTF8StringEncoding] ?: @"[bin]") : @"[no_body]";
-                tlog(@"req_del", @{
+                NSString *tag = [u containsString:@"getui"] ? @"req_getui" : @"req_del";
+                tlog(tag, @{
                     @"u": u.length > 200 ? [u substringToIndex:200] : u,
                     @"m": req.HTTPMethod ?: @"GET",
                     @"b": bs.length > 1500 ? [bs substringToIndex:1500] : bs

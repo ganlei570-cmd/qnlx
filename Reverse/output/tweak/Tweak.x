@@ -513,6 +513,25 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
+// ── 诊断：NSUserDefaults 中的 GTCID/key104 读写 ─────────────────
+%hook NSUserDefaults
+- (void)setObject:(id)val forKey:(NSString *)key {
+    if ([key containsString:@"gtcid"] || [key containsString:@"GTCID"] ||
+        [key containsString:@"Key104"] || [key containsString:@"key104"]) {
+        tlog(@"ud_gtcid_set", @{@"k": key ?: @"nil", @"v": [val description] ?: @"nil"});
+    }
+    %orig;
+}
+- (id)objectForKey:(NSString *)key {
+    id v = %orig;
+    if ([key containsString:@"gtcid"] || [key containsString:@"GTCID"] ||
+        [key containsString:@"Key104"] || [key containsString:@"key104"]) {
+        tlog(@"ud_gtcid_get", @{@"k": key ?: @"nil", @"v": [v description] ?: @"nil"});
+    }
+    return v;
+}
+%end
+
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
     @autoreleasepool {
