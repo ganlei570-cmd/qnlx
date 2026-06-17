@@ -70,6 +70,7 @@ static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
 
 static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
 static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
+volatile BOOL gBlockGtsGiKeys = NO;
 
 static void logCFDataResult(CFTypeRef *result, NSString *key) {
     if (!result || !*result) return;
@@ -116,6 +117,10 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
         tlog(@"kc_blocked", @{@"key": key ?: @"nil"});
         if (result) *result = NULL; return errSecItemNotFound;
     }
+    if (gBlockGtsGiKeys && key && [key hasPrefix:@"GI_"]) {
+        tlog(@"kc_gi_blocked", @{@"key": key});
+        if (result) *result = NULL; return errSecItemNotFound;
+    }
     OSStatus r = orig_SecItemCopyMatching(q, result);
     if (r == errSecSuccess && key && isGtsKey(key)) logCFDataResult(result, key);
     if (key && (isQunarKey(key) || isGtsKey(key)))
@@ -138,7 +143,8 @@ static OSStatus (*orig_SecItemAdd)(CFDictionaryRef, CFTypeRef *);
 static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     NSString *key = kcQueryKey(attrs);
     OSStatus r = orig_SecItemAdd(attrs, result);
-    if (r == errSecDuplicateItem && key && [gKeychainClearSet containsObject:key]) {
+    BOOL gtsGiReplace = gBlockGtsGiKeys && key && [key hasPrefix:@"GI_"];
+    if (r == errSecDuplicateItem && key && ([gKeychainClearSet containsObject:key] || gtsGiReplace)) {
         orig_SecItemDelete(attrs);
         r = orig_SecItemAdd(attrs, result);
         if (r == errSecSuccess)
@@ -146,7 +152,13 @@ static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     }
     if (r == errSecSuccess && key) {
         tlog(@"kc_written", @{@"key": key});
-        if (isGtsKey(key)) logGtsValue(attrs, key);
+        if (isGtsKey(key)) {
+            logGtsValue(attrs, key);
+            if (gBlockGtsGiKeys && [key hasPrefix:@"GI_"]) {
+                gBlockGtsGiKeys = NO;
+                tlog(@"kc_gi_unblocked", @{@"key": key});
+            }
+        }
         if (isQunarKey(key)) {
             @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
             @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
@@ -162,6 +174,10 @@ static OSStatus hook_SecItemUpdate(CFDictionaryRef q, CFDictionaryRef attrs) {
     OSStatus r = orig_SecItemUpdate(q, attrs);
     if (r == errSecSuccess && key) {
         tlog(@"kc_updated", @{@"key": key});
+        if (gBlockGtsGiKeys && [key hasPrefix:@"GI_"]) {
+            gBlockGtsGiKeys = NO;
+            tlog(@"kc_gi_unblocked", @{@"key": key});
+        }
         if (isQunarKey(key)) {
             @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
             @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
