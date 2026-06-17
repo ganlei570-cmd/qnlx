@@ -410,13 +410,27 @@ static OSStatus hook_SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *res
 }
 static bool (*orig_SecTrustEvaluateWithError)(SecTrustRef, CFErrorRef *);
 static bool hook_SecTrustEvaluateWithError(SecTrustRef trust, CFErrorRef *error) {
+    static int32_t gEvalCnt = 0;
+    int32_t n = __sync_add_and_fetch(&gEvalCnt, 1);
+    if (n == 1 || n == 20 || n == 100)
+        tlog(@"ssl_eval_with_err_n", @{@"n": @(n)});
     if (error) *error = NULL;
     return true;
+}
+static OSStatus (*orig_SecTrustGetTrustResult)(SecTrustRef, SecTrustResultType *);
+static OSStatus hook_SecTrustGetTrustResult(SecTrustRef trust, SecTrustResultType *result) {
+    static int32_t gResultCnt = 0;
+    int32_t n = __sync_add_and_fetch(&gResultCnt, 1);
+    if (n == 1 || n == 20 || n == 100)
+        tlog(@"ssl_trust_result_n", @{@"n": @(n)});
+    if (result) *result = kSecTrustResultProceed;
+    return errSecSuccess;
 }
 
 void installSSLBypassAlways(void) {
     MH("SecTrustEvaluate",          hook_SecTrustEvaluate,          &orig_SecTrustEvaluate);
     MH("SecTrustEvaluateWithError", hook_SecTrustEvaluateWithError, &orig_SecTrustEvaluateWithError);
+    MH("SecTrustGetTrustResult",    hook_SecTrustGetTrustResult,    &orig_SecTrustGetTrustResult);
 }
 
 void installBypassHooks(void) {
