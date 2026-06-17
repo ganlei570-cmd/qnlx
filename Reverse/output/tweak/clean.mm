@@ -112,17 +112,10 @@ static void handleClearSafari(CFNotificationCenterRef c, void *o,
 
 void clearQunarLoginState(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *container = NSHomeDirectory();
-    NSString *lib = [container stringByAppendingPathComponent:@"Library"];
+    NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
 
-    for (NSString *sub in @[@"WebKit", @"Cookies", @"Application Support"]) {
-        NSString *path = [lib stringByAppendingPathComponent:sub];
-        [fm removeItemAtPath:path error:nil];
-    }
-
-    NSString *gtsSqlite = [lib stringByAppendingPathComponent:@"gtRoot/GtkDB/gtsdk.sqlite"];
-    if ([fm removeItemAtPath:gtsSqlite error:nil])
-        tlog(@"gts_sqlite_cleared", nil);
+    for (NSString *sub in @[@"WebKit", @"Cookies", @"Application Support"])
+        [fm removeItemAtPath:[lib stringByAppendingPathComponent:sub] error:nil];
 
     NSString *prefsBase = @"/var/mobile/Library/Preferences";
     for (NSString *f in [fm contentsOfDirectoryAtPath:prefsBase error:nil]) {
@@ -130,8 +123,9 @@ void clearQunarLoginState(void) {
             [fm removeItemAtPath:[prefsBase stringByAppendingPathComponent:f] error:nil];
     }
 
-    clearQunarLoginKeychain();
+    clearQunarCookies();
     clearQunarDefaults();
+    clearKeychainItems(NO);
     tlog(@"login_cleared", nil);
 }
 
