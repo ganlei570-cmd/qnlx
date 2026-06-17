@@ -77,16 +77,21 @@ static void clearKeychainItems(BOOL includeGts) {
             (__bridge id)kSecReturnAttributes: @YES,
             (__bridge id)kSecMatchLimit:       (__bridge id)kSecMatchLimitAll,
         };
+        tlog(@"clr_kc_before_query", @{@"cls": NSStringFromClass(cls)});
         CFTypeRef raw = NULL;
-        if (SecItemCopyMatching((__bridge CFDictionaryRef)q, &raw) != errSecSuccess || !raw) continue;
+        OSStatus qs = SecItemCopyMatching((__bridge CFDictionaryRef)q, &raw);
+        tlog(@"clr_kc_after_query", @{@"cls": NSStringFromClass(cls), @"status": @(qs)});
+        if (qs != errSecSuccess || !raw) continue;
         NSArray *items = (CFGetTypeID(raw) == CFArrayGetTypeID())
             ? (__bridge_transfer NSArray *)raw : @[(__bridge_transfer id)raw];
+        tlog(@"clr_kc_items", @{@"cls": NSStringFromClass(cls), @"n": @(items.count)});
         for (NSDictionary *item in items) {
             NSString *svc = item[(__bridge id)kSecAttrService];
             if (!includeGts && ([svc hasPrefix:@"GI_"] || [svc hasPrefix:@"GX_"])) continue;
             deleteKCItem(cls, item);
             count++;
         }
+        tlog(@"clr_kc_deleted", @{@"cls": NSStringFromClass(cls), @"n": @(count)});
     }
     tlog(@"kc_cleared", @{@"count": @(count), @"gts": @(includeGts)});
 }
@@ -112,20 +117,27 @@ static void handleClearSafari(CFNotificationCenterRef c, void *o,
 }
 
 void clearQunarLoginState(void) {
+    tlog(@"clr_step", @{@"s": @"enter"});
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
 
     for (NSString *sub in @[@"WebKit", @"Cookies"])
         [fm removeItemAtPath:[lib stringByAppendingPathComponent:sub] error:nil];
+    tlog(@"clr_step", @{@"s": @"webkit_done"});
 
     NSString *prefsBase = @"/var/mobile/Library/Preferences";
     for (NSString *f in [fm contentsOfDirectoryAtPath:prefsBase error:nil]) {
         if ([f containsString:@"qunar"] || [f containsString:@"iphoneclient8"])
             [fm removeItemAtPath:[prefsBase stringByAppendingPathComponent:f] error:nil];
     }
+    tlog(@"clr_step", @{@"s": @"prefs_done"});
 
     clearQunarCookies();
+    tlog(@"clr_step", @{@"s": @"cookies_done"});
+
     clearQunarDefaults();
+    tlog(@"clr_step", @{@"s": @"defaults_done"});
+
     clearKeychainItems(NO);
     tlog(@"login_cleared", nil);
 }
