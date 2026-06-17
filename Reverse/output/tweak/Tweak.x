@@ -268,6 +268,8 @@ static NSString *gCachedPhone = nil;
 %hook QBusinessLineVCodeManager
 + (void)sendVcodeWithParam:(id)param fromBusinessLine:(NSString *)bl successCallback:(id)success failCallback:(id)fail networkErrorCallBack:(id)netErr afterSendRequestCallBack:(id)after {
     cloudLog(@"send_vcode2_enter", @{@"bl": bl?:@"nil", @"param_cls": NSStringFromClass([param class])?:@"nil", @"idfv": gIDFV?:@""});
+    gVcodeActive = 1;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ gVcodeActive = 0; });
     id wrappedFail = fail ? [^(id result) {
         cloudLog(@"send_vcode2_fail", @{@"result": [result description]?:@"nil", @"idfv": gIDFV?:@""});
         ((void(^)(id))fail)(result);

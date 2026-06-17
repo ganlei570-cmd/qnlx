@@ -44,6 +44,7 @@ static const char * const kHideDylibs[] = {
 };
 
 static int32_t gJailCheckActive = 1;
+volatile int32_t gVcodeActive = 0;
 
 static BOOL isJailPath(const char *p) {
     if (!p) return NO;
@@ -351,6 +352,24 @@ static unsigned char *hook_CC_SHA256(const void *data, CC_LONG len, unsigned cha
 }
 
 
+typedef int32_t (*CCCrypt_fn)(uint32_t, uint32_t, uint32_t, const void*, size_t, const void*, const void*, size_t, void*, size_t, size_t*);
+static CCCrypt_fn orig_CCCrypt = NULL;
+static int32_t hook_CCCrypt(uint32_t op, uint32_t alg, uint32_t opts, const void *key, size_t keyLen, const void *iv,
+                             const void *dataIn, size_t dataInLen, void *dataOut, size_t dataOutAvail, size_t *moved) {
+    int32_t r = orig_CCCrypt(op, alg, opts, key, keyLen, iv, dataIn, dataInLen, dataOut, dataOutAvail, moved);
+    if (r != 0 || op != 0 || !gVcodeActive || dataInLen < 16 || gInTlog) return r;
+    if (!__sync_bool_compare_and_swap(&gInTlog, 0, 1)) return r;
+    NSMutableString *kh = [NSMutableString string], *ih = [NSMutableString string], *dh = [NSMutableString string];
+    for (size_t i = 0; i < MIN(keyLen, 32); i++) [kh appendFormat:@"%02x", ((uint8_t*)key)[i]];
+    if (iv) for (int i = 0; i < 16; i++) [ih appendFormat:@"%02x", ((uint8_t*)iv)[i]];
+    for (size_t i = 0; i < MIN(dataInLen, 512); i++) [dh appendFormat:@"%02x", ((uint8_t*)dataIn)[i]];
+    NSData *raw = [NSData dataWithBytes:dataIn length:MIN(dataInLen, 512)];
+    NSString *u8 = [[NSString alloc] initWithData:raw encoding:NSUTF8StringEncoding] ?: @"(bin)";
+    tlog(@"crypt_enc", @{@"alg":@(alg),@"opts":@(opts),@"keyLen":@(keyLen),@"key":kh,@"iv":ih,@"dataLen":@(dataInLen),@"hex":dh,@"utf8":[u8 substringToIndex:MIN(500,(NSUInteger)u8.length)]});
+    gInTlog = 0;
+    return r;
+}
+
 static int (*orig_kill)(pid_t, int);
 static int hook_kill(pid_t pid, int sig) {
     if (pid == getpid() && (sig == SIGKILL || sig == SIGTERM)) {
@@ -489,6 +508,7 @@ void installBypassHooks(void) {
     hookEnvDetect();
     MH("CC_MD5",    hook_CC_MD5,    &orig_CC_MD5);
     MH("CC_SHA256", hook_CC_SHA256, &orig_CC_SHA256);
+    MH("CCCrypt",   hook_CCCrypt,   (void**)&orig_CCCrypt);
     dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW);
     MH("IORegistryEntryCreateCFProperty", hook_IORegCreateCFProp, &orig_IORegCreateCFProp);
     MH("SecTrustEvaluate", hook_SecTrustEvaluate, &orig_SecTrustEvaluate);
