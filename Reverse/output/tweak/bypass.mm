@@ -422,6 +422,22 @@ static OSStatus hook_SSLHandshake(void *ctx) {
     }
     return r;
 }
+static OSStatus (*orig_SSLWrite)(void *, const void *, size_t, size_t *);
+static int32_t gSSLWCnt = 0;
+static OSStatus hook_SSLWrite(void *ctx, const void *data, size_t len, size_t *wrote) {
+    OSStatus r = orig_SSLWrite(ctx, data, len, wrote);
+    int32_t n = __sync_add_and_fetch(&gSSLWCnt, 1);
+    if (n <= 40) tlog(@"ssl_w", @{@"n": @(n), @"len": @(len), @"r": @(r)});
+    return r;
+}
+static OSStatus (*orig_SSLRead)(void *, void *, size_t, size_t *);
+static int32_t gSSLRCnt = 0;
+static OSStatus hook_SSLRead(void *ctx, void *data, size_t len, size_t *got) {
+    OSStatus r = orig_SSLRead(ctx, data, len, got);
+    int32_t n = __sync_add_and_fetch(&gSSLRCnt, 1);
+    if (n <= 40 && got) tlog(@"ssl_r", @{@"n": @(n), @"got": @(*got), @"r": @(r)});
+    return r;
+}
 
 // SSL pinning bypass — allows mitmproxy MITM
 static OSStatus (*orig_SecTrustEvaluate)(SecTrustRef, SecTrustResultType *);
@@ -451,6 +467,8 @@ static OSStatus hook_SecTrustGetTrustResult(SecTrustRef trust, SecTrustResultTyp
 void installSSLBypassAlways(void) {
     MH("SSLSetSessionOption",        hook_SSLSetSessionOption,        &orig_SSLSetSessionOption);
     MH("SSLHandshake",               hook_SSLHandshake,               &orig_SSLHandshake);
+    MH("SSLWrite",                   hook_SSLWrite,                   &orig_SSLWrite);
+    MH("SSLRead",                    hook_SSLRead,                    &orig_SSLRead);
     MH("SecTrustEvaluate",          hook_SecTrustEvaluate,          &orig_SecTrustEvaluate);
     MH("SecTrustEvaluateWithError", hook_SecTrustEvaluateWithError, &orig_SecTrustEvaluateWithError);
     MH("SecTrustGetTrustResult",    hook_SecTrustGetTrustResult,    &orig_SecTrustGetTrustResult);
