@@ -167,7 +167,9 @@ void initCleanHooks(void) {
     if ([[NSFileManager defaultManager] fileExistsAtPath:pendingPath]) {
         [[NSFileManager defaultManager] removeItemAtPath:pendingPath error:nil];
         tlog(@"new_machine_pending_detected", nil);
-        clearGtsKeys();
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+            clearGtsKeys();
+        });
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
             NSURL *url = [NSURL URLWithString:@"qunariphone://uc/logout"];
             [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:^(BOOL ok) {
