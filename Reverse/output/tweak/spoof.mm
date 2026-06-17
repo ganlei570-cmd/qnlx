@@ -89,15 +89,6 @@ static void logCFDataResult(CFTypeRef *result, NSString *key) {
 }
 
 static BOOL blockGtsIfNeeded(NSString *key, CFTypeRef *result) {
-    if (!key) return NO;
-    if ([key containsString:@"__gxsdk_reserved_key104__"]) {
-        tlog(@"kc_key104_cleared", @{@"key": key});
-        if (result) *result = NULL; return YES;
-    }
-    if ([key containsString:@"_key72__"]) {
-        tlog(@"kc_key72_cleared", @{@"key": key});
-        if (result) *result = NULL; return YES;
-    }
     return NO;
 }
 

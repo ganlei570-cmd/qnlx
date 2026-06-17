@@ -113,7 +113,7 @@ void clearQunarLoginState(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
 
-    for (NSString *sub in @[@"WebKit", @"Cookies", @"Application Support"])
+    for (NSString *sub in @[@"WebKit", @"Cookies"])
         [fm removeItemAtPath:[lib stringByAppendingPathComponent:sub] error:nil];
 
     NSString *prefsBase = @"/var/mobile/Library/Preferences";
