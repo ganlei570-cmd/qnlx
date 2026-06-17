@@ -287,6 +287,8 @@ static NSString *gCachedPhone = nil;
     if ([[type description] isEqualToString:@"12"]) type = @"1";
     tlog(@"vcode_type_bypass", @{@"v": [type description] ?: @"nil"});
     cloudLog(@"vcode_type_bypass", @{@"v": [type description] ?: @"nil", @"idfv": gIDFV ?: @""});
+    gVcodeActive = 1;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ gVcodeActive = 0; });
     %orig;
 }
 - (void)setPhone:(id)v {
