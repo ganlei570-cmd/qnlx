@@ -89,7 +89,6 @@ static void clearKeychainItems(BOOL includeGts) {
     tlog(@"kc_cleared", @{@"count": @(count), @"gts": @(includeGts)});
 }
 
-static void clearQunarLoginKeychain(void) { clearKeychainItems(YES); }
 
 void clearAccountOnly(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
