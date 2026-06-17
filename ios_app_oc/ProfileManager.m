@@ -239,7 +239,7 @@ static NSArray<NSString *> *sysVerPool(NSString *real) {
     [self clearDir:[container stringByAppendingPathComponent:@"Documents"] fm:fm];
     [self clearDir:[container stringByAppendingPathComponent:@"tmp"] fm:fm];
     NSString *lib = [container stringByAppendingPathComponent:@"Library"];
-    for (NSString *sub in @[@"Caches", @"Application Support", @"WebKit", @"SplashBoard", @"Cookies", @"Preferences"]) {
+    for (NSString *sub in @[@"Caches", @"Application Support", @"WebKit", @"SplashBoard", @"Cookies", @"Preferences", @"gtRoot", @"gtLogDir"]) {
         [self clearDir:[lib stringByAppendingPathComponent:sub] fm:fm];
     }
     NSString *prefsBase = @"/var/mobile/Library/Preferences";
