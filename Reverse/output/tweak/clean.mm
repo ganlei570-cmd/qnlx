@@ -64,7 +64,7 @@ static void deleteKCItem(id cls, NSDictionary *item) {
     SecItemDelete((__bridge CFDictionaryRef)d);
 }
 
-static void clearQunarLoginKeychain(void) {
+static void clearKeychainItems(BOOL includeGts) {
     NSArray *classes = @[(__bridge id)kSecClassGenericPassword,
                          (__bridge id)kSecClassInternetPassword];
     int count = 0;
@@ -80,11 +80,26 @@ static void clearQunarLoginKeychain(void) {
         NSArray *items = (CFGetTypeID(raw) == CFArrayGetTypeID())
             ? (__bridge_transfer NSArray *)raw : @[(__bridge_transfer id)raw];
         for (NSDictionary *item in items) {
+            NSString *svc = item[(__bridge id)kSecAttrService];
+            if (!includeGts && ([svc hasPrefix:@"GI_"] || [svc hasPrefix:@"GX_"])) continue;
             deleteKCItem(cls, item);
             count++;
         }
     }
-    tlog(@"kc_login_cleared", @{@"count": @(count)});
+    tlog(@"kc_cleared", @{@"count": @(count), @"gts": @(includeGts)});
+}
+
+static void clearQunarLoginKeychain(void) { clearKeychainItems(YES); }
+
+void clearAccountOnly(void) {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
+    for (NSString *sub in @[@"WebKit", @"Cookies"])
+        [fm removeItemAtPath:[lib stringByAppendingPathComponent:sub] error:nil];
+    clearQunarCookies();
+    clearQunarDefaults();
+    clearKeychainItems(NO);
+    tlog(@"account_only_cleared", nil);
 }
 
 static void handleClearSafari(CFNotificationCenterRef c, void *o,
@@ -92,10 +107,7 @@ static void handleClearSafari(CFNotificationCenterRef c, void *o,
     NSFileManager *fm = [NSFileManager defaultManager];
     for (NSString *p in safariTargets())
         [fm removeItemAtPath:p error:nil];
-    clearQunarCookies();
-    clearQunarDefaults();
-    clearQunarLoginKeychain();
-    tlog(@"login_cleared", nil);
+    clearAccountOnly();
 }
 
 void clearQunarLoginState(void) {
@@ -125,7 +137,7 @@ void clearQunarLoginState(void) {
 
 static void handleClearLogin(CFNotificationCenterRef c, void *o,
                               CFStringRef n, const void *obj, CFDictionaryRef i) {
-    clearQunarLoginState();
+    clearAccountOnly();
 }
 
 void initCleanHooks(void) {
