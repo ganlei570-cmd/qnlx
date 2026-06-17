@@ -151,8 +151,6 @@ static void clearGtsKeys(void) {
         @"__gxsdk_reserved_key44__",
         @"__gxsdk_reserved_key72__",
         @"__gxsdk_reserved_key104__",
-        @"_gikeychain_key1",
-        @"_gikeychain_key2",
     ];
     for (NSString *acc in accs) {
         NSDictionary *q = @{ (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
