@@ -121,6 +121,30 @@ static char kVcodeAccKey = 0;
         [r URLSession:sess dataTask:t didReceiveData:d];
 }
 
+- (void)URLSession:(NSURLSession *)sess dataTask:(NSURLSessionDataTask *)t
+    didReceiveResponse:(NSURLResponse *)response
+    completionHandler:(void (^)(NSURLSessionResponseDisposition))cb {
+    @try {
+        if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+            NSString *u = t.currentRequest.URL.absoluteString ?: @"";
+            if ([u containsString:@"apple.com"])
+                tlog(@"apple_resp", @{
+                    @"status": @([(NSHTTPURLResponse *)response statusCode]),
+                    @"u": u.length > 120 ? [u substringToIndex:120] : u
+                });
+        }
+    } @catch(id e) {}
+    __block BOOL called = NO;
+    void (^once)(NSURLSessionResponseDisposition) = ^(NSURLSessionResponseDisposition d) {
+        if (!called) { called = YES; cb(d); }
+    };
+    id r = self.real;
+    if (r && [r respondsToSelector:_cmd])
+        [r URLSession:sess dataTask:t didReceiveResponse:response completionHandler:once];
+    else
+        once(NSURLSessionResponseAllow);
+}
+
 - (void)URLSession:(NSURLSession *)sess task:(NSURLSessionTask *)t didCompleteWithError:(NSError *)e {
     @try {
         NSString *u = t.currentRequest.URL.absoluteString ?: @"";
@@ -136,6 +160,12 @@ static char kVcodeAccKey = 0;
                 @"str": str.length > 600 ? [str substringToIndex:600] : str,
                 @"err": e.localizedDescription ?: @"",
                 @"hex": hexStr
+            });
+        } else if ([u containsString:@"apple.com"]) {
+            tlog(@"apple_done", @{
+                @"u": u.length > 120 ? [u substringToIndex:120] : u,
+                @"e": e.localizedDescription ?: @"",
+                @"code": @(e.code)
             });
         } else if (([u containsString:@"qunar.com"] || [u containsString:@"getui.com"] || [u containsString:@"getui.cn"]) && ![u containsString:@"slugger"]) {
             tlog(@"resp_done", @{
