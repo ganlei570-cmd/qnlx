@@ -459,6 +459,7 @@ static OSStatus hook_SSLSetSessionOption(void *ctx, int32_t opt, Boolean val) {
 }
 static OSStatus (*orig_SSLHandshake)(void *);
 static OSStatus hook_SSLHandshake(void *ctx) {
+    orig_SSLSetSessionOption(ctx, 0 /* kSSLSessionOptionBreakOnServerAuth */, true);
     OSStatus r = orig_SSLHandshake(ctx);
     tlog(@"ssl_hs", @{@"r": @(r)});
     if (r == (OSStatus)-9841 /* errSSLServerAuthCompleted */) {
