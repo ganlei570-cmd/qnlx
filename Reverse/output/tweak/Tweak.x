@@ -181,6 +181,22 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
+%hook NSMutableURLRequest
+- (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
+    if ([field isEqualToString:@"fp"]) {
+        NSString *u = self.URL.absoluteString ?: @"";
+        if ([u containsString:@"slugger.qunar.com"] &&
+            ![u containsString:@"ucGetVcodeV2"] &&
+            ![u containsString:@"ucVerifyVcodeV2"] &&
+            ![u containsString:@"ucRegister"]) {
+            tlog(@"fp_stripped", @{@"u": u.length > 80 ? [u substringToIndex:80] : u});
+            return;
+        }
+    }
+    %orig;
+}
+%end
+
 // ── UIKit hooks ──────────────────────────────────────────────────
 %hook UIDevice
 - (NSUUID *)identifierForVendor { return gGtsRegistered ? [[NSUUID alloc] initWithUUIDString:gIDFV] : %orig; }
