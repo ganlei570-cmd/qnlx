@@ -158,6 +158,10 @@ static void clearGtsKeys(void) {
         OSStatus r = SecItemDelete((__bridge CFDictionaryRef)q);
         tlog(@"gts_key_del", @{@"acc": acc, @"r": @(r)});
     }
+    NSString *gtsDbDir = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/gtRoot/GtkDB"];
+    NSError *dbErr = nil;
+    BOOL dbRemoved = [[NSFileManager defaultManager] removeItemAtPath:gtsDbDir error:&dbErr];
+    tlog(@"gts_db_cleared", @{@"ok": @(dbRemoved), @"err": dbErr.localizedDescription ?: @"nil"});
 }
 
 void initCleanHooks(void) {
@@ -165,6 +169,11 @@ void initCleanHooks(void) {
     if ([[NSFileManager defaultManager] fileExistsAtPath:pendingPath]) {
         [[NSFileManager defaultManager] removeItemAtPath:pendingPath error:nil];
         tlog(@"new_machine_pending_detected", nil);
+        // 同步删 gtsdk.sqlite — 必须在 GTS SDK 读取它之前执行
+        NSString *gtsDbDir = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/gtRoot/GtkDB"];
+        NSError *dbErr = nil;
+        BOOL dbRemoved = [[NSFileManager defaultManager] removeItemAtPath:gtsDbDir error:&dbErr];
+        tlog(@"gts_db_sync_cleared", @{@"ok": @(dbRemoved), @"err": dbErr.localizedDescription ?: @"nil"});
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
             clearGtsKeys();
         });
