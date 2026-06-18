@@ -455,10 +455,6 @@ static void hookEnvDetect(void) {
 
 static OSStatus (*orig_SSLSetSessionOption)(void *, int32_t, Boolean);
 static OSStatus hook_SSLSetSessionOption(void *ctx, int32_t opt, Boolean val) {
-    if (opt == 0 /* kSSLSessionOptionBreakOnServerAuth */ && val) {
-        tlog(@"ssl_break_auth_blocked", nil);
-        return orig_SSLSetSessionOption(ctx, opt, false);
-    }
     return orig_SSLSetSessionOption(ctx, opt, val);
 }
 static OSStatus (*orig_SSLHandshake)(void *);
