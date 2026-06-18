@@ -183,7 +183,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 
 // ── UIKit hooks ──────────────────────────────────────────────────
 %hook UIDevice
-- (NSUUID *)identifierForVendor { return [[NSUUID alloc] initWithUUIDString:gIDFV]; }
+- (NSUUID *)identifierForVendor { return gGtsRegistered ? [[NSUUID alloc] initWithUUIDString:gIDFV] : %orig; }
 - (NSString *)name              { return gDeviceName ?: @"iPhone"; }
 - (NSString *)systemVersion     { return gSysVer ?: %orig; }
 %end

@@ -18,6 +18,7 @@ extern NSString *gHardwareUUID;
 extern NSString *gSerialNumber;
 extern NSMutableSet<NSString *> *gKeychainClearSet;
 extern NSMutableSet<NSString *> *gKeychainAllowedSet;
+extern BOOL gGtsRegistered;
 
 #ifdef __cplusplus
 extern "C" {

@@ -20,6 +20,7 @@ NSString *gHardwareUUID     = nil;
 NSString *gSerialNumber     = nil;
 NSMutableSet<NSString *> *gKeychainClearSet;
 NSMutableSet<NSString *> *gKeychainAllowedSet;
+BOOL gGtsRegistered = NO;
 
 static NSString *qunarProfileDir(void) {
     NSArray *dirs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
@@ -136,5 +137,18 @@ void loadProfile(void) {
     }
     [gIDFV writeToFile:lastIDFVPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
-    tlog(@"profile_ok", @{@"idfv_prefix": [gIDFV substringToIndex:MIN(8u, gIDFV.length)]});
+    // 检查 GTS SDK 是否已完成注册（key2 存在说明 CID 登记过，不再需要真实 IDFV）
+    NSDictionary *gtsQ = @{
+        (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrService: @"GI__gikeychain_appkey1_SDK_Service",
+        (__bridge id)kSecAttrAccount: @"_gikeychain_key2",
+        (__bridge id)kSecMatchLimit: (__bridge id)kSecMatchLimitOne,
+        (__bridge id)kSecReturnAttributes: @YES,
+    };
+    CFTypeRef gtsResult = NULL;
+    OSStatus gtsStatus = SecItemCopyMatching((__bridge CFDictionaryRef)gtsQ, &gtsResult);
+    gGtsRegistered = (gtsStatus == errSecSuccess);
+    if (gtsResult) CFRelease(gtsResult);
+
+    tlog(@"profile_ok", @{@"idfv_prefix": [gIDFV substringToIndex:MIN(8u, gIDFV.length)], @"gts_reg": @(gGtsRegistered)});
 }

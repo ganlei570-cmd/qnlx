@@ -124,7 +124,13 @@ static OSStatus hook_SecItemAdd(CFDictionaryRef attrs, CFTypeRef *result) {
     }
     if (r == errSecSuccess && key) {
         tlog(@"kc_written", @{@"key": key});
-        if (isGtsKey(key)) logGtsValue(attrs, key);
+        if (isGtsKey(key)) {
+            logGtsValue(attrs, key);
+            if ([key containsString:@"_gikeychain_key2"]) {
+                gGtsRegistered = YES;
+                tlog(@"gts_key2_registered", nil);
+            }
+        }
         if (isQunarKey(key)) {
             @synchronized(gKeychainAllowedSet) { [gKeychainAllowedSet addObject:key]; }
             @synchronized(gKeychainClearSet)   { [gKeychainClearSet removeObject:key]; }
