@@ -256,11 +256,6 @@ static NSString *gCachedPhone = nil;
 - (void)sendSMSCode:(id)param {
     tlog(@"send_sms", @{@"param": [param description] ?: @"nil"});
     cloudLog(@"send_sms", @{@"param": [param description] ?: @"nil", @"idfv": gIDFV ?: @""});
-    if (!param && gCachedPhone.length) {
-        tlog(@"send_voice_as_sms", @{@"phone": gCachedPhone});
-        %orig(gCachedPhone);
-        return;
-    }
     %orig;
 }
 %end
