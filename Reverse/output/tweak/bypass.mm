@@ -43,12 +43,10 @@ static const char * const kHideDylibs[] = {
     "cycript", "dopamine", "procursus", ".fakelib", NULL
 };
 
-static int32_t gJailCheckActive = 1;
 volatile int32_t gVcodeActive = 0;
 
 static BOOL isJailPath(const char *p) {
     if (!p) return NO;
-    if (!gJailCheckActive) return NO;
     for (int i = 0; kJailPaths[i]; i++)
         if (strstr(p, kJailPaths[i])) return YES;
     return NO;
@@ -559,9 +557,5 @@ void installBypassHooks(void) {
     tlog(@"xkj_sym", @{@"found": @(xkjSym != NULL),
                         @"addr": [NSString stringWithFormat:@"%p", xkjSym],
                         @"popup_off": [NSString stringWithFormat:@"%p", (char*)xkjSym + 8968112]});
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        gJailCheckActive = 0;
-        tlog(@"jail_check_off", nil);
-    });
     tlog(@"bypass_installed", nil);
 }
