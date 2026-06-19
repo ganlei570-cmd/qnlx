@@ -45,6 +45,8 @@ static BOOL isRelevant(NSString *s) {
            [s containsString:@"GTCID"]     || [s containsString:@"aesSecret"];
 }
 
+static NSString * volatile g_sofireSkey = nil;
+
 static OSStatus (*orig_SSLRead)(SSLContextRef, void *, size_t, size_t *);
 static OSStatus hook_SSLRead(SSLContextRef ctx, void *data, size_t dataLen, size_t *processed) {
     OSStatus r = orig_SSLRead(ctx, data, dataLen, processed);
@@ -235,10 +237,34 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
                                         @"status": @([(NSHTTPURLResponse *)r statusCode]),
                                         @"body": body ?: @"(binary)",
                                         @"len": @(d.length)});
+                    NSDictionary *j = d ? [NSJSONSerialization JSONObjectWithData:d options:0 error:nil] : nil;
+                    NSString *sk = j[@"skey"];
+                    if (sk) g_sofireSkey = [sk copy];
                 } @catch(id e2) {}
                 if (orig) orig(d, r, e);
             } copy];
             return orig_dataTaskReq(self, cmd, req, (__bridge void *)wrapped);
+        }
+        if ([u containsString:@"h_node_updateprices"]) {
+            NSString *sofireSkey = g_sofireSkey;
+            NSDictionary *hdrs = req.allHTTPHeaderFields;
+            BOOL skeyInHdrs = NO;
+            if (sofireSkey)
+                for (NSString *v in hdrs.allValues)
+                    if ([v containsString:sofireSkey]) { skeyInHdrs = YES; break; }
+            NSData *reqBody = req.HTTPBody;
+            NSString *bodyDesc = reqBody.length > 0
+                ? [reqBody subdataWithRange:NSMakeRange(0, MIN(256, reqBody.length))].description
+                : (req.HTTPBodyStream ? @"(stream)" : @"(empty)");
+            BOOL skeyInBody = sofireSkey && reqBody.length > 0 &&
+                [[[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] containsString:sofireSkey];
+            tlog(@"price_req", @{
+                @"skey": sofireSkey ?: @"(none)",
+                @"in_hdrs": @(skeyInHdrs),
+                @"in_body": @(skeyInBody),
+                @"hdrs": hdrs.description ?: @"",
+                @"body": bodyDesc
+            });
         }
         if ([u containsString:@"qunar"]) {
             tlog(@"req_all", @{@"u": u.length > 200 ? [u substringToIndex:200] : u,
