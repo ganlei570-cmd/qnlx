@@ -459,7 +459,10 @@ typedef Boolean (*CFReadStreamOpenFn)(CFReadStreamRef);
 static CFReadStreamOpenFn orig_CFReadStreamOpen;
 static Boolean hook_CFReadStreamOpen(CFReadStreamRef stream) {
     @try {
-        CFTypeRef req = CFReadStreamCopyProperty(stream, kCFStreamPropertyHTTPRequest);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        CFTypeRef req = CFReadStreamCopyProperty(stream, kCFStreamPropertyHTTPFinalRequest);
+#pragma clang diagnostic pop
         if (req) {
             CFURLRef url = CFHTTPMessageCopyRequestURL((CFHTTPMessageRef)req);
             if (url) {
