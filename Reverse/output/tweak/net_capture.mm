@@ -503,11 +503,13 @@ void installNetCaptureHooks(void) {
         @selector(dataTaskWithRequest:),
         (IMP)hook_dataTaskReqDel,
         (IMP *)&orig_dataTaskReqDel);
-    MSHookMessageEx(
-        [NSURLSession class],
-        @selector(dataTaskWithURL:completionHandler:),
-        (IMP)hook_dataTaskURL,
-        (IMP *)&orig_dataTaskURL);
+    // hook_dataTaskURL disabled: dataTaskWithURL: internally calls dataTaskWithRequest:,
+    // causing double-wrap of the completion handler and crashing NSURLConnectionLoader.
+    // MSHookMessageEx(
+    //     [NSURLSession class],
+    //     @selector(dataTaskWithURL:completionHandler:),
+    //     (IMP)hook_dataTaskURL,
+    //     (IMP *)&orig_dataTaskURL);
     void *fnCFOpen = dlsym(RTLD_DEFAULT, "CFReadStreamOpen");
     if (fnCFOpen) MSHookFunction(fnCFOpen, (void *)hook_CFReadStreamOpen, (void **)&orig_CFReadStreamOpen);
 }
