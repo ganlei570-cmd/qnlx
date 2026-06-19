@@ -341,6 +341,27 @@ static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
                     @"m": req.HTTPMethod ?: @"GET",
                     @"b": bs.length > 1500 ? [bs substringToIndex:1500] : bs
                 });
+                if ([u containsString:@"h_node_updateprices"]) {
+                    NSString *sofireSkey = g_sofireSkey;
+                    NSDictionary *hdrs = req.allHTTPHeaderFields;
+                    BOOL skeyInHdrs = NO;
+                    if (sofireSkey)
+                        for (NSString *v in hdrs.allValues)
+                            if ([v containsString:sofireSkey]) { skeyInHdrs = YES; break; }
+                    NSData *reqBody = req.HTTPBody;
+                    NSString *bodyDesc = reqBody.length > 0
+                        ? [reqBody subdataWithRange:NSMakeRange(0, MIN(256, reqBody.length))].description
+                        : (req.HTTPBodyStream ? @"(stream)" : @"(empty)");
+                    BOOL skeyInBody = sofireSkey && reqBody.length > 0 &&
+                        [[[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] containsString:sofireSkey];
+                    tlog(@"price_req", @{
+                        @"skey": sofireSkey ?: @"(none)",
+                        @"in_hdrs": @(skeyInHdrs),
+                        @"in_body": @(skeyInBody),
+                        @"hdrs": hdrs.description ?: @"",
+                        @"body": bodyDesc
+                    });
+                }
             }
         }
     } @catch(id e) {}
