@@ -504,8 +504,8 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 
 %hook QNPRiskInfoPlugin
 - (void)getRiskInfo:(id)params response:(id)response {
-    tlog(@"rctl_bypass", @{@"m": @"getRiskInfo:response:"});
-    tryRespSuccess(response, @{@"code": @200});
+    tlog(@"risk_get_info", @{@"p": params ? [params description] : @"nil"});
+    %orig;
 }
 %end
 
