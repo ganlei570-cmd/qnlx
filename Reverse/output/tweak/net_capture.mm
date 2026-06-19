@@ -458,7 +458,7 @@ static CCCryptorStatus hook_CCCryptorFinal(CCCryptorRef ref, void *dataOut, size
 
 typedef Boolean (*CFReadStreamOpenFn)(CFReadStreamRef);
 static CFReadStreamOpenFn orig_CFReadStreamOpen;
-static Boolean hook_CFReadStreamOpen(CFReadStreamRef stream) {
+static __attribute__((unused)) Boolean hook_CFReadStreamOpen(CFReadStreamRef stream) {
     @try {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
