@@ -256,12 +256,9 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
             NSString *bodyDesc = reqBody.length > 0
                 ? [reqBody subdataWithRange:NSMakeRange(0, MIN(256, reqBody.length))].description
                 : (req.HTTPBodyStream ? @"(stream)" : @"(empty)");
-            BOOL skeyInBody = sofireSkey && reqBody.length > 0 &&
-                [[[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] containsString:sofireSkey];
             tlog(@"price_req", @{
                 @"skey": sofireSkey ?: @"(none)",
                 @"in_hdrs": @(skeyInHdrs),
-                @"in_body": @(skeyInBody),
                 @"hdrs": hdrs.description ?: @"",
                 @"body": bodyDesc
             });
@@ -352,12 +349,9 @@ static id hook_dataTaskReqDel(id self, SEL cmd, NSURLRequest *req) {
                     NSString *bodyDesc = reqBody.length > 0
                         ? [reqBody subdataWithRange:NSMakeRange(0, MIN(256, reqBody.length))].description
                         : (req.HTTPBodyStream ? @"(stream)" : @"(empty)");
-                    BOOL skeyInBody = sofireSkey && reqBody.length > 0 &&
-                        [[[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] containsString:sofireSkey];
                     tlog(@"price_req", @{
                         @"skey": sofireSkey ?: @"(none)",
                         @"in_hdrs": @(skeyInHdrs),
-                        @"in_body": @(skeyInBody),
                         @"hdrs": hdrs.description ?: @"",
                         @"body": bodyDesc
                     });
