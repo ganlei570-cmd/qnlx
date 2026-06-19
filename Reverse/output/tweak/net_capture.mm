@@ -259,6 +259,7 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
 }
 
 static id (*orig_dataTaskURL)(id, SEL, NSURL *, void *);
+__attribute__((unused))
 static id hook_dataTaskURL(id self, SEL cmd, NSURL *url, void *handler) {
     @try {
         NSString *u = url.absoluteString ?: @"";
