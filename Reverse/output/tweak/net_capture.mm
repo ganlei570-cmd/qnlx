@@ -4,6 +4,7 @@
 #import <CFNetwork/CFNetwork.h>
 #import <CommonCrypto/CommonCryptor.h>
 #import <dlfcn.h>
+#include <mach-o/dyld.h>
 #import <zlib.h>
 #import <substrate.h>
 #import "profile.h"
@@ -519,6 +520,23 @@ static __attribute__((unused)) Boolean hook_CFReadStreamOpen(CFReadStreamRef str
     return orig_CFReadStreamOpen(stream);
 }
 
+// sofire GET /s/ AES-CBC-256 decrypt: sub_100F5D3D8 @ IDA offset 0xF5D3D8
+// a3[0]=plaintext_start, retval=plaintext_len (PKCS7 already stripped)
+typedef long long (*fn_sofire_decrypt_t)(__int64, __int64, uint64_t *);
+static fn_sofire_decrypt_t orig_sofire_decrypt = NULL;
+
+static long long hook_sofire_aes_decrypt(__int64 a1, __int64 a2, uint64_t *a3) {
+    long long ret = orig_sofire_decrypt(a1, a2, a3);
+    if (ret > 0 && ret < 65536 && a3 && a3[0]) {
+        NSData *d = [NSData dataWithBytes:(void *)a3[0] length:(NSUInteger)ret];
+        NSString *s = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
+        if (s && [s hasPrefix:@"{"]) {
+            tlog(@"sofire_plain", @{@"len": @(ret), @"text": s});
+        }
+    }
+    return ret;
+}
+
 void installNetCaptureHooks(void) {
     void *fnc = dlsym(RTLD_DEFAULT, "CCCrypt");
     if (fnc) MSHookFunction(fnc, (void *)hook_CCCrypt, (void **)&orig_CCCrypt);
@@ -557,4 +575,14 @@ void installNetCaptureHooks(void) {
     // Re-enable after adding CFGetTypeID(req) == CFHTTPMessageGetTypeID() guard.
     // void *fnCFOpen = dlsym(RTLD_DEFAULT, "CFReadStreamOpen");
     // if (fnCFOpen) MSHookFunction(fnCFOpen, (void *)hook_CFReadStreamOpen, (void **)&orig_CFReadStreamOpen);
+    intptr_t mainSlide = 0;
+    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
+        const char *n = _dyld_get_image_name(i);
+        if (n && strstr(n, "QunariPhone_Cook_CM")) {
+            mainSlide = _dyld_get_image_vmaddr_slide(i);
+            break;
+        }
+    }
+    void *fnSofireDecrypt = (void *)(0x100000000ULL + (uintptr_t)mainSlide + 0xF5D3D8ULL);
+    MSHookFunction(fnSofireDecrypt, (void *)hook_sofire_aes_decrypt, (void **)&orig_sofire_decrypt);
 }
