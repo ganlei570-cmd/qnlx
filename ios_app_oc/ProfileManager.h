@@ -10,5 +10,4 @@
 - (NSArray<NSDictionary *> *)listBackups;
 - (BOOL)deleteBackupAtPath:(NSString *)path error:(NSError **)error;
 - (BOOL)restoreFromPath:(NSString *)path error:(NSError **)error;
-- (NSString *)findQunarContainer;
 @end

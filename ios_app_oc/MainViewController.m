@@ -11,7 +11,7 @@
 #define CLR_SUB  [UIColor colorWithRed:120/255.0 green:120/255.0 blue:128/255.0 alpha:1]
 
 static NSArray<NSString *> *btnTitles(void) {
-    return @[@"一键新机", @"备份记录", @"清理剪贴板", @"还原机器", @"查看日志"];
+    return @[@"一键新机", @"备份记录", @"清理剪贴板", @"还原机器"];
 }
 
 @interface MainViewController ()
@@ -77,7 +77,7 @@ static NSArray<NSString *> *btnTitles(void) {
         [btn addTarget:self action:@selector(onButton:) forControlEvents:UIControlEventTouchUpInside];
         [self.scroll addSubview:btn];
     }
-    CGFloat contentH = 122 + 3 * (btnH + gap) + 20;
+    CGFloat contentH = 122 + 2 * (btnH + gap) + 20;
     self.scroll.contentSize = CGSizeMake(W, contentH);
 }
 
@@ -104,7 +104,6 @@ static NSArray<NSString *> *btnTitles(void) {
         case 1: [self doBackup]; break;
         case 2: [self doClearClipboard]; break;
         case 3: [self doRestore]; break;
-        case 4: [self doViewLog]; break;
     }
 }
 
@@ -166,44 +165,6 @@ static NSArray<NSString *> *btnTitles(void) {
     BackupViewController *vc = [BackupViewController new];
     vc.restoreMode = YES;
     [self.navigationController pushViewController:vc animated:YES];
-}
-
-- (void)doViewLog {
-    NSString *container = [[ProfileManager shared] findQunarContainer];
-    if (!container) {
-        [self showToast:@"❌ 找不到去哪儿数据目录\n未安装或未打开过去哪儿" color:CLR_RED];
-        return;
-    }
-    NSString *logPath = [container stringByAppendingPathComponent:@"Library/Caches/.qn_s"];
-    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:logPath];
-    if (!exists) {
-        [self showToast:[NSString stringWithFormat:@"❌ Tweak未注入\n日志文件不存在\n%@", logPath] color:CLR_RED];
-        return;
-    }
-    NSString *content = [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:nil];
-    if (!content.length) {
-        [self showToast:@"⚠️ 日志文件为空\nTweak可能未注入" color:CLR_SUB];
-        return;
-    }
-    NSArray *lines = [content componentsSeparatedByString:@"\n"];
-    NSInteger start = MAX(0, (NSInteger)lines.count - 100);
-    NSString *display = [[lines subarrayWithRange:NSMakeRange(start, lines.count - start)]
-                         componentsJoinedByString:@"\n"];
-    UIViewController *vc = [UIViewController new];
-    vc.view.backgroundColor = [UIColor blackColor];
-    vc.title = @"诊断日志";
-    UITextView *tv = [[UITextView alloc] initWithFrame:vc.view.bounds];
-    tv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    tv.text = display;
-    tv.font = [UIFont monospacedSystemFontOfSize:10 weight:UIFontWeightRegular];
-    tv.textColor = [UIColor greenColor];
-    tv.backgroundColor = [UIColor blackColor];
-    tv.editable = NO;
-    [vc.view addSubview:tv];
-    [self.navigationController pushViewController:vc animated:YES];
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [tv scrollRangeToVisible:NSMakeRange(display.length > 0 ? display.length - 1 : 0, 0)];
-    });
 }
 
 - (void)showToast:(NSString *)msg color:(UIColor *)color {
