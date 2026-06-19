@@ -526,6 +526,11 @@ typedef long long (*fn_sofire_decrypt_t)(int64_t, int64_t, uint64_t *);
 static fn_sofire_decrypt_t orig_sofire_decrypt = NULL;
 
 static long long hook_sofire_aes_decrypt(int64_t a1, int64_t a2, uint64_t *a3) {
+    static int sofire_enter_count = 0;
+    if (sofire_enter_count < 3) {
+        sofire_enter_count++;
+        tlog(@"sofire_aes_enter", @{@"a1": @(a1), @"n": @(sofire_enter_count)});
+    }
     long long ret = orig_sofire_decrypt(a1, a2, a3);
     if (ret > 0 && ret < 65536 && a3 && a3[0]) {
         NSData *d = [NSData dataWithBytes:(void *)a3[0] length:(NSUInteger)ret];
@@ -585,4 +590,8 @@ void installNetCaptureHooks(void) {
     }
     void *fnSofireDecrypt = (void *)(0x100000000ULL + (uintptr_t)mainSlide + 0xF5D3D8ULL);
     MSHookFunction(fnSofireDecrypt, (void *)hook_sofire_aes_decrypt, (void **)&orig_sofire_decrypt);
+    tlog(@"sofire_hook", @{
+        @"slide": [NSString stringWithFormat:@"%lx", (unsigned long)mainSlide],
+        @"addr":  [NSString stringWithFormat:@"%lx", (unsigned long)(uintptr_t)fnSofireDecrypt]
+    });
 }
