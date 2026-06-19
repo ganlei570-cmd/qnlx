@@ -198,6 +198,37 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 }
 %end
 
+static BOOL shouldStripFp(NSString *u) {
+    return [u containsString:@"slugger.qunar.com"] &&
+           ![u containsString:@"ucGetVcodeV2"] &&
+           ![u containsString:@"ucVerifyVcodeV2"] &&
+           ![u containsString:@"ucRegister"];
+}
+
+%hook NSMutableURLRequest
+- (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
+    if ([field isEqualToString:@"fp"]) {
+        NSString *u = self.URL.absoluteString ?: @"";
+        if (shouldStripFp(u)) {
+            tlog(@"fp_seen", @{@"u": u.length > 80 ? [u substringToIndex:80] : u,
+                               @"v": value ?: @""});
+            return;
+        }
+    }
+    %orig;
+}
+- (void)addValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
+    if ([field isEqualToString:@"fp"]) {
+        NSString *u = self.URL.absoluteString ?: @"";
+        if (shouldStripFp(u)) {
+            tlog(@"fp_seen_add", @{@"u": u.length > 80 ? [u substringToIndex:80] : u,
+                                   @"v": value ?: @""});
+            return;
+        }
+    }
+    %orig;
+}
+%end
 
 // ── UIKit hooks ──────────────────────────────────────────────────
 %hook UIDevice
