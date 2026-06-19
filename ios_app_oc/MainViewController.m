@@ -170,14 +170,19 @@ static NSArray<NSString *> *btnTitles(void) {
 
 - (void)doViewLog {
     NSString *container = [[ProfileManager shared] findQunarContainer];
-    NSString *logPath = container
-        ? [container stringByAppendingPathComponent:@"Library/Caches/.qn_s"]
-        : nil;
-    NSString *content = logPath
-        ? [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:nil]
-        : nil;
+    if (!container) {
+        [self showToast:@"❌ 找不到去哪儿数据目录\n未安装或未打开过去哪儿" color:CLR_RED];
+        return;
+    }
+    NSString *logPath = [container stringByAppendingPathComponent:@"Library/Caches/.qn_s"];
+    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:logPath];
+    if (!exists) {
+        [self showToast:[NSString stringWithFormat:@"❌ Tweak未注入\n日志文件不存在\n%@", logPath] color:CLR_RED];
+        return;
+    }
+    NSString *content = [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:nil];
     if (!content.length) {
-        [self showToast:@"暂无日志" color:CLR_SUB];
+        [self showToast:@"⚠️ 日志文件为空\nTweak可能未注入" color:CLR_SUB];
         return;
     }
     NSArray *lines = [content componentsSeparatedByString:@"\n"];
