@@ -511,6 +511,9 @@ void installNetCaptureHooks(void) {
     //     @selector(dataTaskWithURL:completionHandler:),
     //     (IMP)hook_dataTaskURL,
     //     (IMP *)&orig_dataTaskURL);
-    void *fnCFOpen = dlsym(RTLD_DEFAULT, "CFReadStreamOpen");
-    if (fnCFOpen) MSHookFunction(fnCFOpen, (void *)hook_CFReadStreamOpen, (void **)&orig_CFReadStreamOpen);
+    // hook_CFReadStreamOpen disabled: IOHID uses CFReadStreamOpen internally; our hook
+    // calls CFHTTPMessageCopyRequestURL on a non-HTTP stream → SIGBUS (PC alignment fault).
+    // Re-enable after adding CFGetTypeID(req) == CFHTTPMessageGetTypeID() guard.
+    // void *fnCFOpen = dlsym(RTLD_DEFAULT, "CFReadStreamOpen");
+    // if (fnCFOpen) MSHookFunction(fnCFOpen, (void *)hook_CFReadStreamOpen, (void **)&orig_CFReadStreamOpen);
 }
