@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <Security/SecureTransport.h>
+#import <CFNetwork/CFNetwork.h>
 #import <CommonCrypto/CommonCryptor.h>
 #import <dlfcn.h>
 #import <zlib.h>
@@ -224,6 +225,21 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
 
     @try {
         NSString *u = req.URL.absoluteString ?: @"";
+        if ([u containsString:@"sofire.baidu.com"] && [u containsString:@"/s/"]) {
+            typedef void (^SofireHandler)(NSData *, NSURLResponse *, NSError *);
+            SofireHandler orig = (__bridge SofireHandler)handler;
+            SofireHandler wrapped = [^(NSData *d, NSURLResponse *r, NSError *e) {
+                @try {
+                    NSString *body = d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : nil;
+                    tlog(@"sofire_s", @{@"url": u.length > 200 ? [u substringToIndex:200] : u,
+                                        @"status": @([(NSHTTPURLResponse *)r statusCode]),
+                                        @"body": body ?: @"(binary)",
+                                        @"len": @(d.length)});
+                } @catch(id e2) {}
+                if (orig) orig(d, r, e);
+            } copy];
+            return orig_dataTaskReq(self, cmd, req, (__bridge void *)wrapped);
+        }
         if ([u containsString:@"qunar"]) {
             tlog(@"req_all", @{@"u": u.length > 200 ? [u substringToIndex:200] : u,
                                @"m": req.HTTPMethod ?: @"GET"});
@@ -240,6 +256,29 @@ static id hook_dataTaskReq(id self, SEL cmd, NSURLRequest *req, void *handler) {
         }
     } @catch(id e) {}
     return orig_dataTaskReq(self, cmd, req, handler);
+}
+
+static id (*orig_dataTaskURL)(id, SEL, NSURL *, void *);
+static id hook_dataTaskURL(id self, SEL cmd, NSURL *url, void *handler) {
+    @try {
+        NSString *u = url.absoluteString ?: @"";
+        if ([u containsString:@"sofire.baidu.com"] && [u containsString:@"/s/"]) {
+            typedef void (^SofireHandler)(NSData *, NSURLResponse *, NSError *);
+            SofireHandler orig = (__bridge SofireHandler)handler;
+            SofireHandler wrapped = [^(NSData *d, NSURLResponse *r, NSError *e) {
+                @try {
+                    NSString *body = d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : nil;
+                    tlog(@"sofire_s", @{@"url": u.length > 200 ? [u substringToIndex:200] : u,
+                                        @"status": @([(NSHTTPURLResponse *)r statusCode]),
+                                        @"body": body ?: @"(binary)",
+                                        @"len": @(d.length)});
+                } @catch(id e2) {}
+                if (orig) orig(d, r, e);
+            } copy];
+            return orig_dataTaskURL(self, cmd, url, (__bridge void *)wrapped);
+        }
+    } @catch(id e) {}
+    return orig_dataTaskURL(self, cmd, url, handler);
 }
 
 // delegate-based dataTask（h_hlist 走这条路）
@@ -416,6 +455,25 @@ static CCCryptorStatus hook_CCCryptorFinal(CCCryptorRef ref, void *dataOut, size
     return r;
 }
 
+typedef Boolean (*CFReadStreamOpenFn)(CFReadStreamRef);
+static CFReadStreamOpenFn orig_CFReadStreamOpen;
+static Boolean hook_CFReadStreamOpen(CFReadStreamRef stream) {
+    @try {
+        CFTypeRef req = CFReadStreamCopyProperty(stream, kCFStreamPropertyHTTPRequest);
+        if (req) {
+            CFURLRef url = CFHTTPMessageCopyRequestURL((CFHTTPMessageRef)req);
+            if (url) {
+                NSString *host = (__bridge_transfer NSString *)CFURLCopyHostName(url);
+                CFRelease(url);
+                if ([host containsString:@"sofire"])
+                    tlog(@"cf_open", @{@"host": host});
+            }
+            CFRelease(req);
+        }
+    } @catch(id e) {}
+    return orig_CFReadStreamOpen(stream);
+}
+
 void installNetCaptureHooks(void) {
     void *fnc = dlsym(RTLD_DEFAULT, "CCCrypt");
     if (fnc) MSHookFunction(fnc, (void *)hook_CCCrypt, (void **)&orig_CCCrypt);
@@ -442,4 +500,11 @@ void installNetCaptureHooks(void) {
         @selector(dataTaskWithRequest:),
         (IMP)hook_dataTaskReqDel,
         (IMP *)&orig_dataTaskReqDel);
+    MSHookMessageEx(
+        [NSURLSession class],
+        @selector(dataTaskWithURL:completionHandler:),
+        (IMP)hook_dataTaskURL,
+        (IMP *)&orig_dataTaskURL);
+    void *fnCFOpen = dlsym(RTLD_DEFAULT, "CFReadStreamOpen");
+    if (fnCFOpen) MSHookFunction(fnCFOpen, (void *)hook_CFReadStreamOpen, (void **)&orig_CFReadStreamOpen);
 }
