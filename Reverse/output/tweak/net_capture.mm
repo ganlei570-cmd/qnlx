@@ -522,10 +522,10 @@ static __attribute__((unused)) Boolean hook_CFReadStreamOpen(CFReadStreamRef str
 
 // sofire GET /s/ AES-CBC-256 decrypt: sub_100F5D3D8 @ IDA offset 0xF5D3D8
 // a3[0]=plaintext_start, retval=plaintext_len (PKCS7 already stripped)
-typedef long long (*fn_sofire_decrypt_t)(__int64, __int64, uint64_t *);
+typedef long long (*fn_sofire_decrypt_t)(int64_t, int64_t, uint64_t *);
 static fn_sofire_decrypt_t orig_sofire_decrypt = NULL;
 
-static long long hook_sofire_aes_decrypt(__int64 a1, __int64 a2, uint64_t *a3) {
+static long long hook_sofire_aes_decrypt(int64_t a1, int64_t a2, uint64_t *a3) {
     long long ret = orig_sofire_decrypt(a1, a2, a3);
     if (ret > 0 && ret < 65536 && a3 && a3[0]) {
         NSData *d = [NSData dataWithBytes:(void *)a3[0] length:(NSUInteger)ret];
