@@ -136,6 +136,9 @@ void clearQunarLoginState(void) {
     clearQunarDefaults();
     tlog(@"clr_step", @{@"s": @"defaults_done"});
 
+    clearKeychainItems(NO);
+    tlog(@"clr_step", @{@"s": @"keychain_done"});
+
     tlog(@"login_cleared", nil);
 }
 
