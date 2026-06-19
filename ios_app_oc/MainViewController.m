@@ -11,7 +11,7 @@
 #define CLR_SUB  [UIColor colorWithRed:120/255.0 green:120/255.0 blue:128/255.0 alpha:1]
 
 static NSArray<NSString *> *btnTitles(void) {
-    return @[@"一键新机", @"清理Safari", @"备份记录", @"清理剪贴板", @"清理Keychain", @"还原机器"];
+    return @[@"一键新机", @"备份记录", @"清理剪贴板", @"还原机器", @"查看日志"];
 }
 
 @interface MainViewController ()
@@ -101,11 +101,10 @@ static NSArray<NSString *> *btnTitles(void) {
 - (void)onButton:(UIButton *)btn {
     switch (btn.tag) {
         case 0: [self doNewMachine]; break;
-        case 1: [self doClearSafari]; break;
-        case 2: [self doBackup]; break;
-        case 3: [self doClearClipboard]; break;
-        case 4: [self doClearKeychain]; break;
-        case 5: [self doRestore]; break;
+        case 1: [self doBackup]; break;
+        case 2: [self doClearClipboard]; break;
+        case 3: [self doRestore]; break;
+        case 4: [self doViewLog]; break;
     }
 }
 
@@ -152,15 +151,6 @@ static NSArray<NSString *> *btnTitles(void) {
     }];
 }
 
-- (void)doClearSafari {
-    NSInteger n = [self clearSafariData];
-    [Logger log:@"clear_safari" info:@{@"count": @(n)}];
-    [self showToast:n > 0
-        ? [NSString stringWithFormat:@"Safari 已清理（%ld项）", (long)n]
-        : @"Safari 无数据"
-        color:CLR_GRN];
-}
-
 - (void)doBackup {
     BackupViewController *vc = [BackupViewController new];
     vc.restoreMode = NO;
@@ -172,19 +162,43 @@ static NSArray<NSString *> *btnTitles(void) {
     [self showToast:@"剪贴板已清理" color:CLR_GRN];
 }
 
-- (void)doClearKeychain {
-    NSError *e;
-    BOOL ok = [[ProfileManager shared] clearKeychainWithError:&e];
-    [Logger log:ok ? @"clear_keychain_ok" : @"clear_keychain_fail"
-           info:ok ? nil : @{@"err": e.localizedDescription ?: @"未知"}];
-    [self showToast:ok ? @"Keychain 标记已清理" : (e.localizedDescription ?: @"失败")
-              color:ok ? CLR_GRN : CLR_RED];
-}
-
 - (void)doRestore {
     BackupViewController *vc = [BackupViewController new];
     vc.restoreMode = YES;
     [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)doViewLog {
+    NSString *container = [[ProfileManager shared] findQunarContainer];
+    NSString *logPath = container
+        ? [container stringByAppendingPathComponent:@"Library/Caches/.qn_s"]
+        : nil;
+    NSString *content = logPath
+        ? [NSString stringWithContentsOfFile:logPath encoding:NSUTF8StringEncoding error:nil]
+        : nil;
+    if (!content.length) {
+        [self showToast:@"暂无日志" color:CLR_SUB];
+        return;
+    }
+    NSArray *lines = [content componentsSeparatedByString:@"\n"];
+    NSInteger start = MAX(0, (NSInteger)lines.count - 100);
+    NSString *display = [[lines subarrayWithRange:NSMakeRange(start, lines.count - start)]
+                         componentsJoinedByString:@"\n"];
+    UIViewController *vc = [UIViewController new];
+    vc.view.backgroundColor = [UIColor blackColor];
+    vc.title = @"诊断日志";
+    UITextView *tv = [[UITextView alloc] initWithFrame:vc.view.bounds];
+    tv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    tv.text = display;
+    tv.font = [UIFont monospacedSystemFontOfSize:10 weight:UIFontWeightRegular];
+    tv.textColor = [UIColor greenColor];
+    tv.backgroundColor = [UIColor blackColor];
+    tv.editable = NO;
+    [vc.view addSubview:tv];
+    [self.navigationController pushViewController:vc animated:YES];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [tv scrollRangeToVisible:NSMakeRange(display.length > 0 ? display.length - 1 : 0, 0)];
+    });
 }
 
 - (void)showToast:(NSString *)msg color:(UIColor *)color {
