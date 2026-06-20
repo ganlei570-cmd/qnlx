@@ -1,6 +1,54 @@
-// diag_sofire_files.x — 诊断：读取 blockPostBeforeRecvc: 入参目录的文件（%orig 前读，避免被删）
+// diag_sofire_files.x — 诊断：
+// 1. hook NSData writeToFile: 捕获 hsarcerifos 目录写入（启动时采集阶段）
+// 2. hook blockPostBeforeRecvc: 读目录内容（POST 前）
 #import <Foundation/Foundation.h>
 #import "tlog.h"
+
+static void logDataAtPath(NSString *path, NSData *data) {
+    if (!path || !data) return;
+    if ([path rangeOfString:@"hsarcerifos"].location == NSNotFound) return;
+    NSString *rel = path.lastPathComponent;
+    NSString *txt = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    if (txt) {
+        NSString *snippet = txt.length > 2000 ? [txt substringToIndex:2000] : txt;
+        tlog(@"sf_write_txt", @{@"f": rel, @"len": @(data.length), @"v": snippet});
+    } else {
+        NSString *b64 = [data base64EncodedStringWithOptions:0];
+        NSString *b64s = b64.length > 2000 ? [b64 substringToIndex:2000] : b64;
+        tlog(@"sf_write_bin", @{@"f": rel, @"len": @(data.length), @"b64": b64s});
+    }
+}
+
+// ── NSData write hooks ──────────────────────────────────────────────────────
+
+%hook NSData
+
+- (BOOL)writeToFile:(NSString *)path atomically:(BOOL)flag {
+    logDataAtPath(path, self);
+    return %orig;
+}
+
+- (BOOL)writeToFile:(NSString *)path options:(NSDataWritingOptions)opt error:(NSError **)err {
+    logDataAtPath(path, self);
+    return %orig;
+}
+
+%end
+
+// ── NSFileManager createFileAtPath:contents:attributes: ─────────────────────
+
+%hook NSFileManager
+
+- (BOOL)createFileAtPath:(NSString *)path
+                contents:(NSData *)data
+              attributes:(NSDictionary *)attr {
+    logDataAtPath(path, data);
+    return %orig;
+}
+
+%end
+
+// ── blockPostBeforeRecvc: — 读目录（此时文件应已写入）────────────────────────
 
 %hook SSMPTypeNodeMgrg
 
@@ -10,32 +58,15 @@
         NSFileManager *fm = [NSFileManager defaultManager];
         NSError *err = nil;
         NSArray<NSString *> *items = [fm subpathsOfDirectoryAtPath:dirPath error:&err];
-        if (!items || items.count == 0) {
-            tlog(@"sf_files", @{@"dir": dirPath ?: @"nil", @"count": @0, @"err": err.localizedDescription ?: @"none"});
-        } else {
-            tlog(@"sf_files", @{@"dir": dirPath, @"count": @(items.count)});
-            for (NSString *rel in items) {
-                NSString *full = [dirPath stringByAppendingPathComponent:rel];
-                NSError *readErr = nil;
-                NSString *txt = [NSString stringWithContentsOfFile:full
-                                                          encoding:NSUTF8StringEncoding
-                                                             error:&readErr];
-                if (txt) {
-                    // text file — log first 2000 chars
-                    NSString *snippet = txt.length > 2000 ? [txt substringToIndex:2000] : txt;
-                    tlog(@"sf_file_txt", @{@"f": rel, @"len": @(txt.length), @"v": snippet});
-                } else {
-                    // binary — log as base64
-                    NSData *data = [NSData dataWithContentsOfFile:full];
-                    if (data) {
-                        NSString *b64 = [data base64EncodedStringWithOptions:0];
-                        NSString *b64snippet = b64.length > 2000 ? [b64 substringToIndex:2000] : b64;
-                        tlog(@"sf_file_bin", @{@"f": rel, @"len": @(data.length), @"b64": b64snippet});
-                    } else {
-                        tlog(@"sf_file_bin", @{@"f": rel, @"len": @(-1), @"b64": @"unreadable"});
-                    }
-                }
-            }
+        tlog(@"sf_files", @{
+            @"dir": dirPath ?: @"nil",
+            @"count": @(items.count),
+            @"err": err.localizedDescription ?: @"none"
+        });
+        for (NSString *rel in items) {
+            NSString *full = [dirPath stringByAppendingPathComponent:rel];
+            NSData *data = [NSData dataWithContentsOfFile:full];
+            if (data) logDataAtPath(full, data);
         }
     } @catch (NSException *ex) {
         tlog(@"sf_files_err", @{@"ex": ex.reason ?: @"?"});
