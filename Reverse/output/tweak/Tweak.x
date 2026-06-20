@@ -15,6 +15,7 @@
 #import "tlog.h"
 #import "net_capture.h"
 #import "cloud_log.h"
+#import "spoof_sofire.h"
 
 // ── NSURLSession SSL delegate proxy (covers GTS c-hzgt2.getui.com) ─
 static const char kSSLProxyKey = 0;
@@ -612,6 +613,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             tlog(@"tweak_loaded", nil);
             loadProfile();
             installBypassHooks();
+            installSofireHooks();
             installSpoofHooks();
             initCleanHooks();
             %init;
