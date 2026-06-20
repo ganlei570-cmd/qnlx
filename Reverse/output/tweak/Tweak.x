@@ -142,6 +142,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)req completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))handler {
     NSString *url = req.URL.absoluteString ?: @"";
     BOOL isQunar = [url containsString:@"unar"] || [url containsString:@"qunar"];
+    BOOL isSofireM = [url containsString:@"sofire.baidu.com"] && [url containsString:@"/m/"];
     if (isQunar) {
         NSData *reqBody = req.HTTPBody;
         NSString *reqStr = reqBody ? ([[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
@@ -158,7 +159,12 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
         } else if (isQunar) {
             cloudLog(@"http_ok", @{@"url": url, @"body": [body substringToIndex:MIN(300, body.length)], @"idfv": gIDFV ?: @""});
         }
-        if (handler) handler(data, resp, err);
+        if (isSofireM && !err) {
+            tlog(@"sofire_m_fake", @{@"orig_len": @(data.length)});
+            if (handler) handler([NSData data], resp, err);
+        } else {
+            if (handler) handler(data, resp, err);
+        }
     };
     return %orig(req, wrapped);
 }
