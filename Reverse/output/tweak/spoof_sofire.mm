@@ -2,10 +2,11 @@
 #include <mach-o/dyld.h>
 #import <substrate.h>
 #import "tlog.h"
+#import "spoof_sofire.h"
 
 static void *replaced_sofire_detect(void) { return NULL; }
 
-void installSofireHooks(void) {
+extern "C" void installSofireHooks(void) {
     intptr_t slide = 0;
     for (uint32_t i = 0; i < _dyld_image_count(); i++) {
         const char *n = _dyld_get_image_name(i);
