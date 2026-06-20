@@ -27,6 +27,21 @@
             @"body_len": @(body.length),
             @"body": prefix
         });
+        NSArray<NSNumber *> *addrs = [NSThread callStackReturnAddresses];
+        intptr_t slide = 0;
+        for (uint32_t i = 0; i < _dyld_image_count(); i++) {
+            const char *n = _dyld_get_image_name(i);
+            if (n && strstr(n, "QunariPhone_Cook_CM")) {
+                slide = _dyld_get_image_vmaddr_slide(i);
+                break;
+            }
+        }
+        NSMutableString *st = [NSMutableString string];
+        for (NSNumber *a in addrs) {
+            uint64_t off = [a unsignedLongLongValue] - 0x100000000ULL - (uint64_t)slide;
+            [st appendFormat:@"0x%llx\n", off];
+        }
+        tlog(@"sofire_m_stack", @{@"st": st});
     }
     return %orig;
 }
