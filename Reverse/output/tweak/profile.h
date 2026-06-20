@@ -18,6 +18,7 @@ extern NSString *gHardwareUUID;
 extern NSString *gSerialNumber;
 extern NSString *gSpoofGID;
 extern NSString *gSpoofAID;
+extern NSString *gSpoofINSTID;
 extern NSMutableSet<NSString *> *gKeychainClearSet;
 extern NSMutableSet<NSString *> *gKeychainAllowedSet;
 extern BOOL gGtsRegistered;

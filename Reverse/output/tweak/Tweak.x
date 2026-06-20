@@ -607,15 +607,19 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
-// ── aid 伪造（测试：isolate upliftUserL3 信号源）────────────────────
+// ── commonSearchParam 伪造（isolate upliftUserL3 信号源）─────────────
 %hook SearchNetParam
 + (id)commonSearchParam {
     id orig = %orig;
-    if (!gSpoofAID || !orig) return orig;
+    if (!orig) return orig;
     NSMutableDictionary *d = [orig mutableCopy];
-    tlog(@"aid_spoof", @{@"a": d[@"aid"] ?: @"nil"});
-    d[@"aid"] = gSpoofAID;
-    if (gIDFV) { d[@"idfv"] = gIDFV; d[@"iid"] = gIDFV; d[@"uid"] = gIDFV; }
+    if (gSpoofAID)    d[@"aid"]    = gSpoofAID;
+    if (gIDFV)      { d[@"idfv"]   = gIDFV; d[@"iid"] = gIDFV; d[@"uid"] = gIDFV; }
+    if (gSpoofINSTID) d[@"instid"] = gSpoofINSTID;
+    tlog(@"param_spoof", @{
+        @"instid_pfx": gSpoofINSTID ? [gSpoofINSTID substringToIndex:8] : @"nil",
+        @"aid_pfx":    gSpoofAID    ? [gSpoofAID    substringToIndex:8] : @"nil",
+    });
     return d;
 }
 %end

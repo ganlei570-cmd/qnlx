@@ -20,6 +20,7 @@ NSString *gHardwareUUID     = nil;
 NSString *gSerialNumber     = nil;
 NSString *gSpoofGID         = nil;
 NSString *gSpoofAID         = nil;
+NSString *gSpoofINSTID      = nil;
 NSMutableSet<NSString *> *gKeychainClearSet;
 NSMutableSet<NSString *> *gKeychainAllowedSet;
 BOOL gGtsRegistered = NO;
@@ -147,6 +148,16 @@ void loadProfile(void) {
         [[NSJSONSerialization dataWithJSONObject:mp options:0 error:nil]
             writeToFile:findActiveProfilePath() atomically:YES];
         tlog(@"app_aid_auto_gen", @{@"aid": [gSpoofAID substringToIndex:8]});
+    }
+    if (p[@"app_instid"]) {
+        gSpoofINSTID = p[@"app_instid"];
+    } else {
+        gSpoofINSTID = [NSUUID UUID].UUIDString;
+        NSMutableDictionary *mp = [p mutableCopy];
+        mp[@"app_instid"] = gSpoofINSTID;
+        [[NSJSONSerialization dataWithJSONObject:mp options:0 error:nil]
+            writeToFile:findActiveProfilePath() atomically:YES];
+        tlog(@"app_instid_auto_gen", @{@"instid": [gSpoofINSTID substringToIndex:8]});
     }
 
     // 检测一键新机：IDFV 变了说明换机，自动清除登录态
