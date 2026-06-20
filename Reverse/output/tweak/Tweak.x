@@ -615,6 +615,7 @@ static void tryRespSuccess(id response, NSDictionary *data) {
     NSMutableDictionary *d = [orig mutableCopy];
     tlog(@"aid_spoof", @{@"a": d[@"aid"] ?: @"nil"});
     d[@"aid"] = gSpoofAID;
+    if (gIDFV) { d[@"idfv"] = gIDFV; d[@"iid"] = gIDFV; d[@"uid"] = gIDFV; }
     return d;
 }
 %end
