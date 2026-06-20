@@ -22,8 +22,7 @@
         }
         NSMutableDictionary *patched = [NSMutableDictionary dictionaryWithDictionary:orig];
         patched[@6] = @0;
-        void *slot = (uint8_t *)(__bridge void *)self + ivar_getOffset(ivar);
-        objc_storeStrong((id *)slot, patched);
+        object_setIvar(self, ivar, patched);
         tlog(@"sf_patch", @{@"ok": @1, @"k6_was": @63});
     } @catch (NSException *ex) {
         tlog(@"sf_patch_err", @{@"ex": ex.reason ?: @"?"});
