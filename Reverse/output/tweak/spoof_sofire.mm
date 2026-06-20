@@ -4,7 +4,10 @@
 #import "tlog.h"
 #import "spoof_sofire.h"
 
-static void *replaced_sofire_detect(void) { return NULL; }
+static void *replaced_sofire_detect(void) {
+    tlog(@"sofire_detect_called", @{@"r": @"nil"});
+    return NULL;
+}
 
 extern "C" void installSofireHooks(void) {
     intptr_t slide = 0;
