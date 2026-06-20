@@ -616,9 +616,10 @@ static void tryRespSuccess(id response, NSDictionary *data) {
     if (gSpoofAID)    d[@"aid"]    = gSpoofAID;
     if (gIDFV)      { d[@"idfv"]   = gIDFV; d[@"iid"] = gIDFV; d[@"uid"] = gIDFV; }
     if (gSpoofINSTID) d[@"instid"] = gSpoofINSTID;
+    if (gSpoofGID)    d[@"gid"]    = gSpoofGID;
     tlog(@"param_spoof", @{
+        @"gid_pfx":    gSpoofGID    ? [gSpoofGID    substringToIndex:8] : @"nil",
         @"instid_pfx": gSpoofINSTID ? [gSpoofINSTID substringToIndex:8] : @"nil",
-        @"aid_pfx":    gSpoofAID    ? [gSpoofAID    substringToIndex:8] : @"nil",
     });
     return d;
 }
