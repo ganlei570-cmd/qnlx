@@ -142,7 +142,7 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)req completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))handler {
     NSString *url = req.URL.absoluteString ?: @"";
     BOOL isQunar = [url containsString:@"unar"] || [url containsString:@"qunar"];
-    BOOL isSofireM = [url containsString:@"sofire.baidu.com"] && [url containsString:@"/m/"];
+    BOOL isSofireM = [url containsString:@"sofire.baidu.com"] && ([url containsString:@"/m/"] || [url containsString:@"/s/"]);
     if (isQunar) {
         NSData *reqBody = req.HTTPBody;
         NSString *reqStr = reqBody ? ([[NSString alloc] initWithData:reqBody encoding:NSUTF8StringEncoding] ?: @"(binary)") : @"(nil)";
