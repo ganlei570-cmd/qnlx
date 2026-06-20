@@ -610,8 +610,9 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 // ── aid 伪造（测试：isolate upliftUserL3 信号源）────────────────────
 %hook SearchNetParam
 + (id)commonSearchParam {
-    NSMutableDictionary *d = [[%orig] mutableCopy];
-    if (!gSpoofAID) return d;
+    id orig = %orig;
+    if (!gSpoofAID || !orig) return orig;
+    NSMutableDictionary *d = [orig mutableCopy];
     tlog(@"aid_spoof", @{@"a": d[@"aid"] ?: @"nil"});
     d[@"aid"] = gSpoofAID;
     return d;
