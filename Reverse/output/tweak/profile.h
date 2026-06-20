@@ -17,6 +17,7 @@ extern NSString *gBootSessionUUID;
 extern NSString *gHardwareUUID;
 extern NSString *gSerialNumber;
 extern NSString *gSpoofGID;
+extern NSString *gSpoofAID;
 extern NSMutableSet<NSString *> *gKeychainClearSet;
 extern NSMutableSet<NSString *> *gKeychainAllowedSet;
 extern BOOL gGtsRegistered;

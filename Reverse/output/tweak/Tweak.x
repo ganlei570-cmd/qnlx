@@ -607,6 +607,17 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
+// ── aid 伪造（测试：isolate upliftUserL3 信号源）────────────────────
+%hook SearchNetParam
++ (id)commonSearchParam {
+    NSMutableDictionary *d = [[%orig] mutableCopy];
+    if (!gSpoofAID) return d;
+    tlog(@"aid_spoof", @{@"a": d[@"aid"] ?: @"nil"});
+    d[@"aid"] = gSpoofAID;
+    return d;
+}
+%end
+
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
     @autoreleasepool {
@@ -624,6 +635,9 @@ static void tryRespSuccess(id response, NSDictionary *data) {
             initCleanHooks();
             %init;
             tlog(@"init_main_done", nil);
+            NSClassFromString(@"SearchNetParam")
+                ? tlog(@"snp_cls", @{@"ok": @1})
+                : tlog(@"snp_cls", @{@"ok": @0, @"err": @"class_not_found"});
             cloudLog(@"init_done", @{@"idfv": gIDFV ?: @""});
             dlopen("/System/Library/Frameworks/AdSupport.framework/AdSupport", RTLD_NOW);
             %init(GAdSupport);
