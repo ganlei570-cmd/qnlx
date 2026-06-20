@@ -607,6 +607,26 @@ static void tryRespSuccess(id response, NSDictionary *data) {
 }
 %end
 
+// ── appGID.dat 文件读取拦截 ───────────────────────────────────────
+%hook NSString
++ (id)stringWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)err {
+    NSString *r = %orig;
+    if (gSpoofGID && [path hasSuffix:@"/appGID.dat"]) {
+        tlog(@"gid_dat_spoof", @{@"via": @"class", @"orig": r ?: @"nil"});
+        return gSpoofGID;
+    }
+    return r;
+}
+- (id)initWithContentsOfFile:(NSString *)path encoding:(NSStringEncoding)enc error:(NSError **)err {
+    NSString *r = %orig;
+    if (gSpoofGID && [path hasSuffix:@"/appGID.dat"]) {
+        tlog(@"gid_dat_spoof", @{@"via": @"init", @"orig": r ?: @"nil"});
+        return gSpoofGID;
+    }
+    return r;
+}
+%end
+
 // ── 初始化 ────────────────────────────────────────────────────────
 %ctor {
     @autoreleasepool {
