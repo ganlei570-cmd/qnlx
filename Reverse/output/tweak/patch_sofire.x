@@ -37,16 +37,6 @@
         if (![bid isEqualToString:@"com.qunar.iphoneclient8"]) return;
         Class cls = NSClassFromString(@"SSMPRtDynamicSessiono");
         tlog(@"sf_ctor", @{@"cls_found": @(cls != nil)});
-        if (cls) {
-            %init;
-        } else {
-            // 类未加载，延迟 0.5s 再注册
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{
-                Class cls2 = NSClassFromString(@"SSMPRtDynamicSessiono");
-                tlog(@"sf_ctor_late", @{@"cls_found": @(cls2 != nil)});
-                if (cls2) %init;
-            });
-        }
+        %init;
     }
 }
