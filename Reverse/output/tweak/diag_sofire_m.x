@@ -1,5 +1,6 @@
 // diag_sofire_m.x — 一次性诊断：确认 sofire POST /m/ body 是否加密，用完删
 #import <Foundation/Foundation.h>
+#include <mach-o/dyld.h>
 #import "tlog.h"
 
 %hook NSURLSession
