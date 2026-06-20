@@ -68,6 +68,26 @@ static CFDictionaryRef hook_CNCopyCurrentNetworkInfo(CFStringRef iface) {
     return (CFDictionaryRef)CFBridgingRetain(d);
 }
 
+static void replaceKeychainGID(CFTypeRef *result, NSString *fakeUUID) {
+    if (!result || !*result || !fakeUUID) return;
+    const char *utf8 = [fakeUUID UTF8String];
+    CFDataRef fake = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)utf8, (CFIndex)strlen(utf8));
+    if (!fake) return;
+    CFTypeRef rv = *result;
+    if (CFGetTypeID(rv) == CFDataGetTypeID()) {
+        CFRelease(rv);
+        *result = fake;
+    } else if (CFGetTypeID(rv) == CFDictionaryGetTypeID()) {
+        CFMutableDictionaryRef md = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, (CFDictionaryRef)rv);
+        CFRelease(rv);
+        CFDictionarySetValue(md, kSecValueData, fake);
+        CFRelease(fake);
+        *result = md;
+    } else {
+        CFRelease(fake);
+    }
+}
+
 static OSStatus (*orig_SecItemCopyMatching)(CFDictionaryRef, CFTypeRef *);
 static OSStatus (*orig_SecItemDelete)(CFDictionaryRef);
 
@@ -96,6 +116,10 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
     }
     OSStatus r = orig_SecItemCopyMatching(q, result);
     if (r == errSecSuccess && key && isGtsKey(key)) logCFDataResult(result, key);
+    if (r == errSecSuccess && result && key && gSpoofGID && [key hasSuffix:@"/appGID"]) {
+        replaceKeychainGID(result, gSpoofGID);
+        tlog(@"kc_spoof_gid", @{@"key": key, @"fake": [gSpoofGID substringToIndex:8]});
+    }
     if (key && (isQunarKey(key) || isGtsKey(key)))
         tlog(@"kc_read", @{@"key": key, @"status": @(r)});
     return r;

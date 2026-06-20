@@ -18,6 +18,7 @@ NSString *gWifiMAC          = nil;
 NSString *gBootSessionUUID  = nil;
 NSString *gHardwareUUID     = nil;
 NSString *gSerialNumber     = nil;
+NSString *gSpoofGID         = nil;
 NSMutableSet<NSString *> *gKeychainClearSet;
 NSMutableSet<NSString *> *gKeychainAllowedSet;
 BOOL gGtsRegistered = NO;
@@ -126,6 +127,16 @@ void loadProfile(void) {
         [ud writeToFile:findActiveProfilePath() atomically:YES];
     }
     if (p[@"keychain"]) gKeychainClearSet = kcSetFromDict(p[@"keychain"]);
+    if (p[@"app_gid"]) {
+        gSpoofGID = p[@"app_gid"];
+    } else {
+        gSpoofGID = [NSUUID UUID].UUIDString;
+        NSMutableDictionary *mp = [p mutableCopy];
+        mp[@"app_gid"] = gSpoofGID;
+        [[NSJSONSerialization dataWithJSONObject:mp options:0 error:nil]
+            writeToFile:findActiveProfilePath() atomically:YES];
+        tlog(@"app_gid_auto_gen", @{@"gid": [gSpoofGID substringToIndex:8]});
+    }
 
     // 检测一键新机：IDFV 变了说明换机，自动清除登录态
     // 存 /tmp/ 避免被 companion app 清掉
