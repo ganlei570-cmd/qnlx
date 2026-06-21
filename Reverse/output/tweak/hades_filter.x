@@ -29,18 +29,25 @@ static void dumpHcFields(id hcObj) {
         tlog(@"hc_kv", @{@"k": k, @"v": valStr(((NSDictionary *)hcObj)[k])});
 }
 
+static void dumpHlistFields(NSMutableDictionary *outer) {
+    id vt = outer[@"vtoken"];
+    tlog(@"hlist_vt", @{@"v": vt ? valStr(vt) : @"nil"});
+    id ab = outer[@"abTestSlot"];
+    if ([ab isKindOfClass:[NSDictionary class]]) {
+        NSString *abJson = toJson(ab) ?: @"nil";
+        tlog(@"hlist_ab", @{@"json": [abJson substringToIndex:MIN((NSUInteger)300, abJson.length)]});
+    } else {
+        tlog(@"hlist_ab", @{@"v": valStr(ab)});
+    }
+    dumpHcFields(outer[@"hc"]);
+}
+
 static void dumpBp(NSString *params, id tValue) {
     NSMutableDictionary *outer = parseDict(params);
     tlog(@"bp_outer", @{@"keys": [[outer allKeys] componentsJoinedByString:@","] ?: @""});
     NSMutableDictionary *extra = parseDict(outer[@"extra"]);
     tlog(@"bp_extra", @{@"keys": [[extra allKeys] componentsJoinedByString:@","] ?: @""});
-    if (outer[@"hotelSeqs"] || outer[@"vtoken"]) {
-        id vt = outer[@"vtoken"];
-        tlog(@"hlist_vt", @{@"v": vt ? valStr(vt) : @"nil"});
-        tlog(@"hlist_ab", @{@"v": valStr(outer[@"abTestSlot"] ?: @"?")});
-        dumpHcFields(outer[@"hc"]);
-        return;
-    }
+    if (outer[@"hotelSeqs"] || outer[@"vtoken"]) { dumpHlistFields(outer); return; }
     if (!extra[@"hadesIdentityJson"]) return;
     tlog(@"bp_tv", @{@"v": [tValue isKindOfClass:[NSString class]] ? tValue : @"?"});
     for (NSString *k in @[@"vtoken", @"hc", @"resultExtraInfo"]) {

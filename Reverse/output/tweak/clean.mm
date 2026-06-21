@@ -32,23 +32,24 @@ static void clearQunarCookies(void) {
     tlog(@"cookies_cleared", @{@"count": @(count)});
 }
 
+static NSArray<NSString *> *udLoginKeys(void) {
+    return @[@"qunar_user",@"qunar_token",@"qunar_login",@"qunar_passport",
+             @"qunar_account",@"qunar_session",@"kUserLoggedIn",@"kCurrentUserName",
+             @"kCurrentUserId",@"QULoginStatus",@"QUCurrentUser",@"passport_login"];
+}
+
 static void clearQunarDefaults(void) {
     NSUserDefaults *ud = [NSUserDefaults standardUserDefaults];
     NSDictionary *dict = [ud dictionaryRepresentation];
-    NSArray *loginKeys = @[
-        @"qunar_user", @"qunar_token", @"qunar_login",
-        @"qunar_passport", @"qunar_account", @"qunar_session",
-        @"kUserLoggedIn", @"kCurrentUserName", @"kCurrentUserId",
-        @"QULoginStatus", @"QUCurrentUser", @"passport_login",
-    ];
     int count = 0;
     for (NSString *key in dict.allKeys) {
         NSString *lower = key.lowercaseString;
         BOOL isLogin = NO;
-        for (NSString *k in loginKeys)
+        for (NSString *k in udLoginKeys())
             if ([lower containsString:k.lowercaseString]) { isLogin = YES; break; }
         if (isLogin) { [ud removeObjectForKey:key]; count++; }
     }
+    [ud removeObjectForKey:@"kClientIDKey"];
     [ud synchronize];
     tlog(@"defaults_cleared", @{@"count": @(count)});
 }
@@ -95,6 +96,14 @@ static void clearKeychainItems(BOOL includeGts) {
 }
 
 
+static void clearCacheDb(void) {
+    NSString *dir = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches/com.qunar.iphoneclient8"];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSString *s in @[@"/Cache.db", @"/Cache.db-shm", @"/Cache.db-wal"])
+        [fm removeItemAtPath:[dir stringByAppendingString:s] error:nil];
+    tlog(@"cache_db_cleared", nil);
+}
+
 void clearAccountOnly(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
@@ -139,6 +148,7 @@ void clearQunarLoginState(void) {
     clearKeychainItems(NO);
     tlog(@"clr_step", @{@"s": @"keychain_done"});
 
+    clearCacheDb();
     tlog(@"login_cleared", nil);
 }
 
