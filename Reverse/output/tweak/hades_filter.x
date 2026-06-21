@@ -64,22 +64,38 @@ static void dumpBp(NSString *params, id tValue) {
 static NSString *filterHadesParams(NSString *params) {
     @try {
         NSMutableDictionary *outer = parseDict(params);
+        if (!outer) return nil;
+        BOOL modified = NO;
+
+        id rawSlot = outer[@"abTestSlot"];
+        if ([rawSlot isKindOfClass:[NSDictionary class]] && rawSlot[@"priceAction"]) {
+            NSMutableDictionary *abSlot = [rawSlot mutableCopy];
+            abSlot[@"priceAction"] = @"A";
+            outer[@"abTestSlot"] = abSlot;
+            tlog(@"ab_patched", @{@"orig": rawSlot[@"priceAction"]});
+            modified = YES;
+        }
+
         NSMutableDictionary *extra = parseDict(outer[@"extra"]);
         NSString *hadesStr = extra[@"hadesIdentityJson"];
-        if (!hadesStr) return nil;
-        NSData *hadesData = [hadesStr dataUsingEncoding:NSUTF8StringEncoding];
-        if (!hadesData) return nil;
-        NSArray *hades = [NSJSONSerialization JSONObjectWithData:hadesData options:0 error:nil];
-        if (![hades isKindOfClass:[NSArray class]]) return nil;
-        NSSet *drop = [NSSet setWithObjects:@"upliftUserL3", @"newUserHighUplift", nil];
-        NSArray *filtered = [hades filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, id _) {
-            return ![drop containsObject:item[@"code"]];
-        }]];
-        if (filtered.count == hades.count) return nil;
-        tlog(@"hades_filter", @{@"before": @(hades.count), @"after": @(filtered.count)});
-        extra[@"hadesIdentityJson"] = toJson(filtered);
-        outer[@"extra"] = toJson(extra);
-        return toJson(outer);
+        if (hadesStr) {
+            NSData *hadesData = [hadesStr dataUsingEncoding:NSUTF8StringEncoding];
+            NSArray *hades = hadesData ? [NSJSONSerialization JSONObjectWithData:hadesData options:0 error:nil] : nil;
+            if ([hades isKindOfClass:[NSArray class]]) {
+                NSSet *drop = [NSSet setWithObjects:@"upliftUserL3", @"newUserHighUplift", nil];
+                NSArray *filtered = [hades filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, id _) {
+                    return ![drop containsObject:item[@"code"]];
+                }]];
+                if (filtered.count != hades.count) {
+                    tlog(@"hades_filter", @{@"before": @(hades.count), @"after": @(filtered.count)});
+                    extra[@"hadesIdentityJson"] = toJson(filtered);
+                    outer[@"extra"] = toJson(extra);
+                    modified = YES;
+                }
+            }
+        }
+
+        return modified ? toJson(outer) : nil;
     } @catch (NSException *ex) {
         tlog(@"hades_filter_err", @{@"ex": ex.reason ?: @"?"});
         return nil;
