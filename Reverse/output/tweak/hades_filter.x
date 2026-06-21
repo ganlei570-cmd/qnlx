@@ -35,7 +35,7 @@ static void dumpHlistFields(NSMutableDictionary *outer) {
     id ab = outer[@"abTestSlot"];
     if ([ab isKindOfClass:[NSDictionary class]]) {
         NSString *abJson = toJson(ab) ?: @"nil";
-        tlog(@"hlist_ab", @{@"json": [abJson substringToIndex:MIN((NSUInteger)300, abJson.length)]});
+        tlog(@"hlist_ab", @{@"json": [abJson substringToIndex:MIN((NSUInteger)2000, abJson.length)]});
     } else {
         tlog(@"hlist_ab", @{@"v": valStr(ab)});
     }
