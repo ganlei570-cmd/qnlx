@@ -64,21 +64,20 @@ static void dumpBp(NSString *params, id tValue) {
 static NSString *filterHadesParams(NSString *params) {
     @try {
         NSMutableDictionary *outer = parseDict(params);
-        tlog(@"pd_dbg", @{@"cls": NSStringFromClass([[NSJSONSerialization JSONObjectWithData:[params dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] class]) ?: @"nil"});
         if (!outer) return nil;
         BOOL modified = NO;
 
         id rawSlot = outer[@"abTestSlot"];
-        NSString *slotJson = [rawSlot isKindOfClass:[NSDictionary class]] ? (toJson(rawSlot) ?: @"nil") : @"n/a";
-        tlog(@"ab_diag", @{@"cls": NSStringFromClass([rawSlot class]) ?: @"nil",
-                            @"pa": [rawSlot isKindOfClass:[NSDictionary class]] ? (rawSlot[@"priceAction"] ?: @"nil") : @"n/a",
-                            @"json": [slotJson substringToIndex:MIN((NSUInteger)500, slotJson.length)]});
-        if ([rawSlot isKindOfClass:[NSDictionary class]] && rawSlot[@"priceAction"]) {
+        if ([rawSlot isKindOfClass:[NSDictionary class]]) {
             NSMutableDictionary *abSlot = [rawSlot mutableCopy];
-            abSlot[@"priceAction"] = @"A";
-            outer[@"abTestSlot"] = abSlot;
-            tlog(@"ab_patched", @{@"orig": rawSlot[@"priceAction"]});
-            modified = YES;
+            for (NSString *k in [rawSlot allKeys]) {
+                if ([k hasSuffix:@"_ho_gj_priceAction"]) {
+                    abSlot[k] = @"A";
+                    tlog(@"ab_patched", @{@"k": k, @"orig": rawSlot[k] ?: @"nil"});
+                    modified = YES;
+                }
+            }
+            if (modified) outer[@"abTestSlot"] = abSlot;
         }
 
         NSMutableDictionary *extra = parseDict(outer[@"extra"]);
