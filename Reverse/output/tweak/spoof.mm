@@ -120,6 +120,11 @@ static OSStatus hook_SecItemCopyMatching(CFDictionaryRef q, CFTypeRef *result) {
         replaceKeychainGID(result, gSpoofGID);
         tlog(@"kc_spoof_gid", @{@"key": key, @"fake": [gSpoofGID substringToIndex:8]});
     }
+    if (r == errSecSuccess && result && key && gIDFV &&
+        [key isEqualToString:@"com.qunar.iphoneclient8.kClientIDKeychainKey/com.qunar.iphoneclient8"]) {
+        replaceKeychainGID(result, gIDFV);
+        tlog(@"kc_spoof_uid", @{@"key": key, @"fake": [gIDFV substringToIndex:8]});
+    }
     if (key && (isQunarKey(key) || isGtsKey(key)))
         tlog(@"kc_read", @{@"key": key, @"status": @(r)});
     return r;
