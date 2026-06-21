@@ -85,10 +85,15 @@ static void clearKeychainItems(BOOL includeGts) {
             ? (__bridge_transfer NSArray *)raw : @[(__bridge_transfer id)raw];
         tlog(@"clr_kc_items", @{@"cls": (NSString *)cls, @"n": @(items.count)});
         for (NSDictionary *item in items) {
-            NSString *svc = item[(__bridge id)kSecAttrService];
-            if (!includeGts && ([svc hasPrefix:@"GI_"] || [svc hasPrefix:@"GX_"])) continue;
-            deleteKCItem(cls, item);
-            count++;
+            @try {
+                id rawSvc = item[(__bridge id)kSecAttrService];
+                NSString *svc = [rawSvc isKindOfClass:[NSString class]] ? rawSvc : nil;
+                if (!includeGts && svc && ([svc hasPrefix:@"GI_"] || [svc hasPrefix:@"GX_"])) continue;
+                deleteKCItem(cls, item);
+                count++;
+            } @catch (NSException *ex) {
+                tlog(@"clr_kc_item_err", @{@"ex": ex.reason ?: @"?"});
+            }
         }
         tlog(@"clr_kc_deleted", @{@"cls": (NSString *)cls, @"n": @(count)});
     }
