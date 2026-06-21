@@ -64,6 +64,7 @@ static void dumpBp(NSString *params, id tValue) {
 static NSString *filterHadesParams(NSString *params) {
     @try {
         NSMutableDictionary *outer = parseDict(params);
+        tlog(@"pd_dbg", @{@"cls": NSStringFromClass([[NSJSONSerialization JSONObjectWithData:[params dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] class]) ?: @"nil"});
         if (!outer) return nil;
         BOOL modified = NO;
 
