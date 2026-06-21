@@ -77,22 +77,7 @@ decidePolicyForNavigationAction:(WKNavigationAction *)action
 decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
     NSString *urlStr = action.request.URL.absoluteString ?: @"";
     tlog(@"wk_nav", @{@"url": urlStr});
-    if ([urlStr containsString:@"forceLogin=true"]) {
-        NSURLComponents *comps = [NSURLComponents componentsWithURL:action.request.URL
-                                              resolvingAgainstBaseURL:NO];
-        NSMutableArray *items = [comps.queryItems mutableCopy] ?: [NSMutableArray new];
-        [items filterUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSURLQueryItem *q, id _) {
-            return ![q.name isEqualToString:@"forceLogin"];
-        }]];
-        comps.queryItems = items.count ? items : nil;
-        NSURL *clean = comps.URL;
-        if (clean) {
-            handler(WKNavigationActionPolicyCancel);
-            tlog(@"wk_forcelogin_stripped", @{@"url": clean.absoluteString ?: @""});
-            dispatch_async(dispatch_get_main_queue(), ^{ [wv loadRequest:[NSURLRequest requestWithURL:clean]]; });
-            return;
-        }
-    }
+
     if ([self.real respondsToSelector:_cmd])
         [self.real webView:wv decidePolicyForNavigationAction:action decisionHandler:handler];
     else
