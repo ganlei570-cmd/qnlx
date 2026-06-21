@@ -15,6 +15,29 @@ static NSString *toJson(id obj) {
     return d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : nil;
 }
 
+static void dumpBp(NSString *params, id tValue) {
+    if (!tValue)
+        tlog(@"bp_tv", @{@"cls": @"nil"});
+    else if ([tValue isKindOfClass:[NSString class]])
+        tlog(@"bp_tv", @{@"cls": @"str", @"len": @([(NSString *)tValue length]),
+                         @"pfx": [(NSString *)tValue substringToIndex:MIN(32u, (unsigned)[(NSString *)tValue length])]});
+    else if ([tValue isKindOfClass:[NSData class]])
+        tlog(@"bp_tv", @{@"cls": @"data", @"len": @([(NSData *)tValue length])});
+    else
+        tlog(@"bp_tv", @{@"cls": NSStringFromClass([tValue class])});
+    NSMutableDictionary *outer = parseDict(params);
+    tlog(@"bp_outer", @{@"keys": [outer allKeys] ?: @[]});
+    NSMutableDictionary *extra = parseDict(outer[@"extra"]);
+    tlog(@"bp_extra", @{@"keys": [extra allKeys] ?: @[]});
+    for (NSString *k in extra) {
+        id v = extra[k];
+        if (![v isKindOfClass:[NSString class]]) continue;
+        if ([(NSString *)v length] >= 100) continue;
+        if ([k isEqualToString:@"hadesIdentityJson"]) continue;
+        tlog(@"bp_ev", @{@"k": k, @"v": v});
+    }
+}
+
 static NSString *filterHadesParams(NSString *params) {
     @try {
         NSMutableDictionary *outer = parseDict(params);
@@ -47,6 +70,7 @@ static NSString *filterHadesParams(NSString *params) {
     if (!params) { %orig; return; }
     NSString *flag = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/qunar_test_filter_hades"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:flag]) { %orig; return; }
+    dumpBp(params, tValue);
     NSString *modified = filterHadesParams(params);
     if (!modified) { tlog(@"hades_filter", @{@"skip": @"no_target"}); %orig; return; }
     %orig(modified, tValue);
