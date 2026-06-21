@@ -76,21 +76,21 @@ static void clearKeychainItems(BOOL includeGts) {
             (__bridge id)kSecReturnAttributes: @YES,
             (__bridge id)kSecMatchLimit:       (__bridge id)kSecMatchLimitAll,
         };
-        tlog(@"clr_kc_before_query", @{@"cls": NSStringFromClass(cls)});
+        tlog(@"clr_kc_before_query", @{@"cls": (NSString *)cls});
         CFTypeRef raw = NULL;
         OSStatus qs = SecItemCopyMatching((__bridge CFDictionaryRef)q, &raw);
-        tlog(@"clr_kc_after_query", @{@"cls": NSStringFromClass(cls), @"status": @(qs)});
+        tlog(@"clr_kc_after_query", @{@"cls": (NSString *)cls, @"status": @(qs)});
         if (qs != errSecSuccess || !raw) continue;
         NSArray *items = (CFGetTypeID(raw) == CFArrayGetTypeID())
             ? (__bridge_transfer NSArray *)raw : @[(__bridge_transfer id)raw];
-        tlog(@"clr_kc_items", @{@"cls": NSStringFromClass(cls), @"n": @(items.count)});
+        tlog(@"clr_kc_items", @{@"cls": (NSString *)cls, @"n": @(items.count)});
         for (NSDictionary *item in items) {
             NSString *svc = item[(__bridge id)kSecAttrService];
             if (!includeGts && ([svc hasPrefix:@"GI_"] || [svc hasPrefix:@"GX_"])) continue;
             deleteKCItem(cls, item);
             count++;
         }
-        tlog(@"clr_kc_deleted", @{@"cls": NSStringFromClass(cls), @"n": @(count)});
+        tlog(@"clr_kc_deleted", @{@"cls": (NSString *)cls, @"n": @(count)});
     }
     tlog(@"kc_cleared", @{@"count": @(count), @"gts": @(includeGts)});
 }
