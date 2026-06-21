@@ -23,11 +23,24 @@ static NSString *valStr(id v) {
     return NSStringFromClass([v class]) ?: @"(nil)";
 }
 
+static void dumpHcFields(id hcObj) {
+    if (![hcObj isKindOfClass:[NSDictionary class]]) return;
+    for (NSString *k in (NSDictionary *)hcObj)
+        tlog(@"hc_kv", @{@"k": k, @"v": valStr(((NSDictionary *)hcObj)[k])});
+}
+
 static void dumpBp(NSString *params, id tValue) {
     NSMutableDictionary *outer = parseDict(params);
     tlog(@"bp_outer", @{@"keys": [[outer allKeys] componentsJoinedByString:@","] ?: @""});
     NSMutableDictionary *extra = parseDict(outer[@"extra"]);
     tlog(@"bp_extra", @{@"keys": [[extra allKeys] componentsJoinedByString:@","] ?: @""});
+    if (outer[@"hotelSeqs"] || outer[@"vtoken"]) {
+        id vt = outer[@"vtoken"];
+        tlog(@"hlist_vt", @{@"v": vt ? valStr(vt) : @"nil"});
+        tlog(@"hlist_ab", @{@"v": valStr(outer[@"abTestSlot"] ?: @"?")});
+        dumpHcFields(outer[@"hc"]);
+        return;
+    }
     if (!extra[@"hadesIdentityJson"]) return;
     tlog(@"bp_tv", @{@"v": [tValue isKindOfClass:[NSString class]] ? tValue : @"?"});
     for (NSString *k in @[@"vtoken", @"hc", @"resultExtraInfo"]) {
