@@ -15,34 +15,29 @@ static NSString *toJson(id obj) {
     return d ? [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding] : nil;
 }
 
+static NSString *valStr(id v) {
+    if ([v isKindOfClass:[NSString class]])
+        return [(NSString *)v substringToIndex:MIN((NSUInteger)80, [(NSString *)v length])];
+    if ([v isKindOfClass:[NSNumber class]])
+        return [(NSNumber *)v stringValue];
+    return NSStringFromClass([v class]) ?: @"(nil)";
+}
+
 static void dumpBp(NSString *params, id tValue) {
-    if (!tValue)
-        tlog(@"bp_tv", @{@"cls": @"nil"});
-    else if ([tValue isKindOfClass:[NSString class]])
-        tlog(@"bp_tv", @{@"cls": @"str", @"len": @([(NSString *)tValue length]),
-                         @"pfx": [(NSString *)tValue substringToIndex:MIN(32u, (unsigned)[(NSString *)tValue length])]});
-    else if ([tValue isKindOfClass:[NSData class]])
-        tlog(@"bp_tv", @{@"cls": @"data", @"len": @([(NSData *)tValue length])});
-    else
-        tlog(@"bp_tv", @{@"cls": NSStringFromClass([tValue class])});
     NSMutableDictionary *outer = parseDict(params);
     tlog(@"bp_outer", @{@"keys": [[outer allKeys] componentsJoinedByString:@","] ?: @""});
     NSMutableDictionary *extra = parseDict(outer[@"extra"]);
     tlog(@"bp_extra", @{@"keys": [[extra allKeys] componentsJoinedByString:@","] ?: @""});
-    for (NSString *k in extra) {
-        id v = extra[k];
-        if (![v isKindOfClass:[NSString class]]) continue;
-        if ([(NSString *)v length] >= 100) continue;
-        if ([k isEqualToString:@"hadesIdentityJson"]) continue;
-        tlog(@"bp_ev", @{@"k": k, @"v": v});
+    if (!extra[@"hadesIdentityJson"]) return;
+    tlog(@"bp_tv", @{@"v": [tValue isKindOfClass:[NSString class]] ? tValue : @"?"});
+    for (NSString *k in @[@"vtoken", @"hc", @"resultExtraInfo"]) {
+        id v = outer[k];
+        if (!v) continue;
+        tlog(@"bp_ov", @{@"k": k, @"v": valStr(v)});
     }
-    if (![tValue isEqualToString:@"h_hlist"]) return;
     for (NSString *k in extra) {
-        id v = extra[k];
-        NSString *vs = [v isKindOfClass:[NSString class]]
-            ? [(NSString *)v substringToIndex:MIN((NSUInteger)60, [(NSString *)v length])]
-            : (NSStringFromClass([v class]) ?: @"(nil)");
-        tlog(@"bp_hlist_ev", @{@"k": k, @"v": vs});
+        if ([k isEqualToString:@"hadesIdentityJson"]) continue;
+        tlog(@"bp_ev", @{@"k": k, @"v": valStr(extra[k])});
     }
 }
 
