@@ -68,6 +68,8 @@ static NSString *filterHadesParams(NSString *params) {
         BOOL modified = NO;
 
         id rawSlot = outer[@"abTestSlot"];
+        tlog(@"ab_diag", @{@"cls": NSStringFromClass([rawSlot class]) ?: @"nil",
+                            @"pa": [rawSlot isKindOfClass:[NSDictionary class]] ? (rawSlot[@"priceAction"] ?: @"nil") : @"n/a"});
         if ([rawSlot isKindOfClass:[NSDictionary class]] && rawSlot[@"priceAction"]) {
             NSMutableDictionary *abSlot = [rawSlot mutableCopy];
             abSlot[@"priceAction"] = @"A";
