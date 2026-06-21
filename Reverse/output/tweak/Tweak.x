@@ -238,8 +238,12 @@ static BOOL shouldStripFp(NSString *u) {
 %end
 
 // ── UIKit hooks ──────────────────────────────────────────────────
+%hook AppInfo
++ (NSString *)idfv { return gIDFV ?: %orig; }
+%end
+
 %hook UIDevice
-- (NSUUID *)identifierForVendor { return gGtsRegistered ? [[NSUUID alloc] initWithUUIDString:gIDFV] : %orig; }
+- (NSUUID *)identifierForVendor { return gIDFV ? [[NSUUID alloc] initWithUUIDString:gIDFV] : %orig; }
 - (NSString *)name              { return gDeviceName ?: @"iPhone"; }
 - (NSString *)systemVersion     { return gSysVer ?: %orig; }
 %end
