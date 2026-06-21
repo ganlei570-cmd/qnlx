@@ -86,6 +86,8 @@ static NSString *filterHadesParams(NSString *params) {
             NSData *hadesData = [hadesStr dataUsingEncoding:NSUTF8StringEncoding];
             NSArray *hades = hadesData ? [NSJSONSerialization JSONObjectWithData:hadesData options:0 error:nil] : nil;
             if ([hades isKindOfClass:[NSArray class]]) {
+                NSArray *codes = [hades valueForKeyPath:@"@unionOfObjects.code"];
+                tlog(@"hades_codes", @{@"c": [codes componentsJoinedByString:@","] ?: @""});
                 NSSet *drop = [NSSet setWithObjects:@"upliftUserL3", @"newUserHighUplift", nil];
                 NSArray *filtered = [hades filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, id _) {
                     return ![drop containsObject:item[@"code"]];
