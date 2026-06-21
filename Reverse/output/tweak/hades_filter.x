@@ -26,15 +26,23 @@ static void dumpBp(NSString *params, id tValue) {
     else
         tlog(@"bp_tv", @{@"cls": NSStringFromClass([tValue class])});
     NSMutableDictionary *outer = parseDict(params);
-    tlog(@"bp_outer", @{@"keys": [outer allKeys] ?: @[]});
+    tlog(@"bp_outer", @{@"keys": [[outer allKeys] componentsJoinedByString:@","] ?: @""});
     NSMutableDictionary *extra = parseDict(outer[@"extra"]);
-    tlog(@"bp_extra", @{@"keys": [extra allKeys] ?: @[]});
+    tlog(@"bp_extra", @{@"keys": [[extra allKeys] componentsJoinedByString:@","] ?: @""});
     for (NSString *k in extra) {
         id v = extra[k];
         if (![v isKindOfClass:[NSString class]]) continue;
         if ([(NSString *)v length] >= 100) continue;
         if ([k isEqualToString:@"hadesIdentityJson"]) continue;
         tlog(@"bp_ev", @{@"k": k, @"v": v});
+    }
+    if (![tValue isEqualToString:@"h_hlist"]) return;
+    for (NSString *k in extra) {
+        id v = extra[k];
+        NSString *vs = [v isKindOfClass:[NSString class]]
+            ? [(NSString *)v substringToIndex:MIN((NSUInteger)60, [(NSString *)v length])]
+            : (NSStringFromClass([v class]) ?: @"(nil)");
+        tlog(@"bp_hlist_ev", @{@"k": k, @"v": vs});
     }
 }
 
