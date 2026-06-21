@@ -107,8 +107,19 @@ static void clearCacheDb(void) {
 void clearAccountOnly(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
-    for (NSString *sub in @[@"WebKit", @"Cookies"])
-        [fm removeItemAtPath:[lib stringByAppendingPathComponent:sub] error:nil];
+    [fm removeItemAtPath:[lib stringByAppendingPathComponent:@"Cookies"] error:nil];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        WKWebsiteDataStore *store = [WKWebsiteDataStore defaultDataStore];
+        NSSet *types = [NSSet setWithObjects:
+            WKWebsiteDataTypeLocalStorage,
+            WKWebsiteDataTypeSessionStorage,
+            WKWebsiteDataTypeIndexedDBDatabases,
+            WKWebsiteDataTypeOfflineWebApplicationCache,
+            WKWebsiteDataTypeDiskCache,
+            WKWebsiteDataTypeMemoryCache, nil];
+        [store removeDataOfTypes:types modifiedSince:[NSDate dateWithTimeIntervalSince1970:0]
+              completionHandler:^{}];
+    });
     clearQunarCookies();
     clearQunarDefaults();
     clearKeychainItems(NO);
@@ -128,8 +139,19 @@ void clearQunarLoginState(void) {
     NSFileManager *fm = [NSFileManager defaultManager];
     NSString *lib = [NSHomeDirectory() stringByAppendingPathComponent:@"Library"];
 
-    for (NSString *sub in @[@"WebKit", @"Cookies"])
-        [fm removeItemAtPath:[lib stringByAppendingPathComponent:sub] error:nil];
+    [fm removeItemAtPath:[lib stringByAppendingPathComponent:@"Cookies"] error:nil];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        WKWebsiteDataStore *store = [WKWebsiteDataStore defaultDataStore];
+        NSSet *types = [NSSet setWithObjects:
+            WKWebsiteDataTypeLocalStorage,
+            WKWebsiteDataTypeSessionStorage,
+            WKWebsiteDataTypeIndexedDBDatabases,
+            WKWebsiteDataTypeOfflineWebApplicationCache,
+            WKWebsiteDataTypeDiskCache,
+            WKWebsiteDataTypeMemoryCache, nil];
+        [store removeDataOfTypes:types modifiedSince:[NSDate dateWithTimeIntervalSince1970:0]
+              completionHandler:^{}];
+    });
     tlog(@"clr_step", @{@"s": @"webkit_done"});
 
     NSString *prefsBase = @"/var/mobile/Library/Preferences";
