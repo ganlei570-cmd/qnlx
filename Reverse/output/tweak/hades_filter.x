@@ -3,8 +3,11 @@
 #import "tlog.h"
 
 static NSMutableDictionary *parseDict(NSString *s) {
+    if (![s isKindOfClass:[NSString class]]) return nil;
     NSData *d = [s dataUsingEncoding:NSUTF8StringEncoding];
-    return [[NSJSONSerialization JSONObjectWithData:d options:NSJSONReadingMutableContainers error:nil] mutableCopy];
+    if (!d) return nil;
+    id obj = [NSJSONSerialization JSONObjectWithData:d options:NSJSONReadingMutableContainers error:nil];
+    return [obj isKindOfClass:[NSDictionary class]] ? [obj mutableCopy] : nil;
 }
 
 static NSString *toJson(id obj) {
@@ -13,27 +16,35 @@ static NSString *toJson(id obj) {
 }
 
 static NSString *filterHadesParams(NSString *params) {
-    NSMutableDictionary *outer = parseDict(params);
-    NSMutableDictionary *extra = parseDict(outer[@"extra"]);
-    NSString *hadesStr = extra[@"hadesIdentityJson"];
-    if (!hadesStr) return nil;
-    NSArray *hades = [NSJSONSerialization JSONObjectWithData:[hadesStr dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-    if (![hades isKindOfClass:[NSArray class]]) return nil;
-    NSSet *drop = [NSSet setWithObjects:@"upliftUserL3", @"newUserHighUplift", nil];
-    NSArray *filtered = [hades filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, id _) {
-        return ![drop containsObject:item[@"code"]];
-    }]];
-    if (filtered.count == hades.count) return nil;
-    tlog(@"hades_filter", @{@"before": @(hades.count), @"after": @(filtered.count)});
-    extra[@"hadesIdentityJson"] = toJson(filtered);
-    outer[@"extra"] = toJson(extra);
-    return toJson(outer);
+    @try {
+        NSMutableDictionary *outer = parseDict(params);
+        NSMutableDictionary *extra = parseDict(outer[@"extra"]);
+        NSString *hadesStr = extra[@"hadesIdentityJson"];
+        if (!hadesStr) return nil;
+        NSData *hadesData = [hadesStr dataUsingEncoding:NSUTF8StringEncoding];
+        if (!hadesData) return nil;
+        NSArray *hades = [NSJSONSerialization JSONObjectWithData:hadesData options:0 error:nil];
+        if (![hades isKindOfClass:[NSArray class]]) return nil;
+        NSSet *drop = [NSSet setWithObjects:@"upliftUserL3", @"newUserHighUplift", nil];
+        NSArray *filtered = [hades filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, id _) {
+            return ![drop containsObject:item[@"code"]];
+        }]];
+        if (filtered.count == hades.count) return nil;
+        tlog(@"hades_filter", @{@"before": @(hades.count), @"after": @(filtered.count)});
+        extra[@"hadesIdentityJson"] = toJson(filtered);
+        outer[@"extra"] = toJson(extra);
+        return toJson(outer);
+    } @catch (NSException *ex) {
+        tlog(@"hades_filter_err", @{@"ex": ex.reason ?: @"?"});
+        return nil;
+    }
 }
 
 %group HadesFilter
 
 %hook SearchNetParamEncryPtion
 + (void)addEncryptedBusinessParameters:(NSString *)params tValue:(id)tValue {
+    if (!params) { %orig; return; }
     NSString *flag = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/qunar_test_filter_hades"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:flag]) { %orig; return; }
     NSString *modified = filterHadesParams(params);
