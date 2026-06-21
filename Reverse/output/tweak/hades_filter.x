@@ -67,19 +67,6 @@ static NSString *filterHadesParams(NSString *params) {
         if (!outer) return nil;
         BOOL modified = NO;
 
-        id rawSlot = outer[@"abTestSlot"];
-        if ([rawSlot isKindOfClass:[NSDictionary class]]) {
-            NSMutableDictionary *abSlot = [rawSlot mutableCopy];
-            for (NSString *k in [rawSlot allKeys]) {
-                if ([k hasSuffix:@"_ho_gj_priceAction"]) {
-                    abSlot[k] = @"A";
-                    tlog(@"ab_patched", @{@"k": k, @"orig": rawSlot[k] ?: @"nil"});
-                    modified = YES;
-                }
-            }
-            if (modified) outer[@"abTestSlot"] = abSlot;
-        }
-
         NSMutableDictionary *extra = parseDict(outer[@"extra"]);
         NSString *hadesStr = extra[@"hadesIdentityJson"];
         if (hadesStr) {
@@ -88,16 +75,6 @@ static NSString *filterHadesParams(NSString *params) {
             if ([hades isKindOfClass:[NSArray class]]) {
                 NSArray *codes = [hades valueForKeyPath:@"@unionOfObjects.code"];
                 tlog(@"hades_codes", @{@"c": [codes componentsJoinedByString:@","] ?: @""});
-                NSSet *drop = [NSSet setWithObjects:@"upliftUserL3", @"newUserHighUplift", nil];
-                NSArray *filtered = [hades filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *item, id _) {
-                    return ![drop containsObject:item[@"code"]];
-                }]];
-                if (filtered.count != hades.count) {
-                    tlog(@"hades_filter", @{@"before": @(hades.count), @"after": @(filtered.count)});
-                    extra[@"hadesIdentityJson"] = toJson(filtered);
-                    outer[@"extra"] = toJson(extra);
-                    modified = YES;
-                }
             }
         }
 
