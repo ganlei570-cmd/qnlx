@@ -7,7 +7,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = QunarNewDevice
 
-QunarNewDevice_FILES        = Tweak.x bypass.mm net_capture.mm spoof.mm spoof_sofire.mm profile.mm clean.mm tlog.mm wk_logger.mm cloud_log.mm diag_sofire_m.x diag_sofire_files.x patch_sofire.x
+QunarNewDevice_FILES        = Tweak.x bypass.mm net_capture.mm spoof.mm spoof_sofire.mm profile.mm clean.mm tlog.mm wk_logger.mm cloud_log.mm diag_sofire_m.x diag_sofire_files.x patch_sofire.x hades_filter.x
 QunarNewDevice_CFLAGS       = -fobjc-arc
 QunarNewDevice_FRAMEWORKS   = UIKit Foundation Security CoreFoundation AdSupport CoreTelephony SystemConfiguration IOKit WebKit
 QunarNewDevice_LIBRARIES    = substrate z
