@@ -145,11 +145,9 @@ decisionHandler:(void(^)(WKNavigationActionPolicy))handler {
             cloudLog(@"http_ok", @{@"url": url, @"body": [body substringToIndex:MIN(300, body.length)], @"idfv": gIDFV ?: @""});
         }
         if (isSofireM && !err) {
-            tlog(@"sofire_fake", @{@"orig_len": @(data.length)});
-            if (handler) handler([@"{}" dataUsingEncoding:NSUTF8StringEncoding], resp, err);
-        } else {
-            if (handler) handler(data, resp, err);
+            tlog(@"sofire_passthru", @{@"orig_len": @(data.length)});
         }
+        if (handler) handler(data, resp, err);
     };
     return %orig(req, wrapped);
 }
